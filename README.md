@@ -1,8 +1,12 @@
+<img width="1232" height="698" alt="Image" src="https://github.com/user-attachments/assets/eccd1696-8b5e-4acb-ba91-944029b9ccd0" />
+
 
 # 🎣 FishingSpot
-> Advanced Unreal Engine 5.6 Multiplayer Fishing Simulation Project by Inyoung
+
 FishingSpot은 **Unreal Engine 5.6** 기반의 **멀티플레이 낚시 시뮬레이션 게임**입니다.  
-리슨 서버 기반의 네트워크 구조, 고급 인벤토리 시스템, 물리 기반 낚시 연출,  
+리슨 서버 기반의 네트워크 구조, 고급 인벤토리 시스템, 물리 기반 낚시 연출이 구현되어 있습니다.
+
+
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/GQKcYW-dDVQ/0.jpg)](https://www.youtube.com/watch?v=GQKcYW-dDVQ)
 
 ---
