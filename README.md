@@ -3,7 +3,7 @@
 
 FishingSpot은 **Unreal Engine 5.6** 기반의 **멀티플레이 낚시 시뮬레이션 게임**입니다.  
 리슨 서버 기반의 네트워크 구조, 고급 인벤토리 시스템, 물리 기반 낚시 연출,  
-그리고 모듈형 데이터 자산 시스템으로 설계된 포트폴리오 프로젝트입니다.
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/GQKcYW-dDVQ/0.jpg)](https://www.youtube.com/watch?v=GQKcYW-dDVQ)
 
 ---
 
