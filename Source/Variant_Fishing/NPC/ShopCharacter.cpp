@@ -1,6 +1,6 @@
 #include "ShopCharacter.h"
 #include "FishingCharacter.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 #include "Variant_Fishing/Actor/ItemActor.h"
 #include "Variant_Fishing/Data/ItemBase.h"
 

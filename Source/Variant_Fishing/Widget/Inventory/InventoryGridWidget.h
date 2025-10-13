@@ -5,7 +5,7 @@
 #include "Components/Border.h"
 #include "Components/CanvasPanel.h"
 #include "Fishing/Variant_Fishing/Data/InventoryDataStruct.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 #include "InventoryGridWidget.generated.h"
 
 class UItemDragOperation;

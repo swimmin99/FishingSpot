@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 #include "InventoryDescriptionWidget.generated.h"
 
 class UItemBase;

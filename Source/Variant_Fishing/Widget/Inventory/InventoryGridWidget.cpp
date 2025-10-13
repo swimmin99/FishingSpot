@@ -7,9 +7,9 @@
 #include "Components/CanvasPanelSlot.h"
 #include "Variant_Fishing/Data/ItemBase.h"
 #include "Styling/SlateBrush.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Fishing.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogInventory, Log, All);
 
 void UInventoryGridWidget::InitializeWidget(UInventoryComponent* InInventoryComponent)
 {

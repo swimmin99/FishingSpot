@@ -1,7 +1,7 @@
 #include "Fish.h"
 #include "Variant_Fishing/Data/FishData.h"
 #include "FishSpawnPool.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
 #include "FishingCharacter.h"
 
 #include "Components/StaticMeshComponent.h"

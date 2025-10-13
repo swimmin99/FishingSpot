@@ -9,7 +9,7 @@
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
 
 void UFishingInventoryModule::Initialize(UFishingComponent* InOwner,
                                          AFishingCharacter* InCharacter,

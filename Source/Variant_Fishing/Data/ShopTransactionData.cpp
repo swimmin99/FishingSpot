@@ -1,7 +1,7 @@
 #include "Variant_Fishing/Data/ShopTransactionData.h"
 
 #include "FishingCharacter.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 #include "Variant_Fishing/Data/ItemBase.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogShopTransaction, Log, All);

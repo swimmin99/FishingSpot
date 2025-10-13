@@ -2,7 +2,7 @@
 #include "FishingBiteModule.h"
 #include "Components/StaticMeshComponent.h"
 #include "NiagaraComponent.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
 
 void UFishingBobberModule::Initialize(UFishingComponent* InOwner, 
                                       UStaticMeshComponent* InBobber, 

@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 #include "Variant_Fishing/Interface/Interactable.h"
 #include "ItemActor.generated.h"
 

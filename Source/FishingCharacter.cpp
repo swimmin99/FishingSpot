@@ -1,6 +1,6 @@
 #include "FishingCharacter.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
-#include "Variant_Fishing/ActorComponent/SubModules/FishingStateModule.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/SubModules//FishingStateModule.h"
 #include "FishingPlayerController.h"
 
 #include "Camera/CameraComponent.h"
@@ -17,7 +17,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "Variant_Fishing/Actor/ItemActor.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 #include "Variant_Fishing/NPC/ShopCharacter.h"
 #include "Variant_Fishing/Interface/Interactable.h"
 

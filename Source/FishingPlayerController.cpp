@@ -11,7 +11,7 @@
 #include "Variant_Fishing/Widget/Inventory/InventoryWidget.h"
 #include "Variant_Fishing/Widget/Shop/ShopInventoryWidget.h"
 #include "Variant_Fishing/Widget/Settings/SettingsPanelWidget.h" 
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 #include "Variant_Fishing/Data/ShopTransactionData.h"
 #include "Variant_Fishing/NPC/ShopCharacter.h"
 #include "Variant_Fishing/Interface/Interactable.h"

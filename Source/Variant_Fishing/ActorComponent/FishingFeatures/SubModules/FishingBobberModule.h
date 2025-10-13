@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
-#include "Variant_Fishing/ActorComponent/SubModules/FishingStateModule.h"
+#include "FishingStateModule.h"
 #include "FishingBobberModule.generated.h"
 
 class UStaticMeshComponent;

@@ -1,6 +1,4 @@
 #include "FishingComponent.h"
-#include "GameFramework/Character.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -280,14 +278,12 @@ void UFishingComponent::OnAnimNotify_PullOutEnd()
 
 void UFishingComponent::OnAnimNotify_TakingOffEnd()
 {
-	if (!OwnerCharacter || !OwnerCharacter->HasAuthority())
-	{
-		return;
-	}
-
 	if (StateModule)
 	{
 		StateModule->ExitFishing();
+	} else
+	{
+		UE_LOG(LogFishingComponent, Log, TEXT("OnAnimNotify_TakingOffEnd StateModule is not set"));
 	}
 }
 
@@ -371,7 +367,6 @@ void UFishingComponent::Server_SetState_Implementation(EFishingState NewState)
 		break;
 
 	case EFishingState::Idle:
-		UE_LOG(LogFishingComponent, Log, TEXT("Enter State (SetState) Idle"));
 		Multicast_PlayFishingAnimation(Sec_Idle, true);
 		if (BobberModule)
 		{

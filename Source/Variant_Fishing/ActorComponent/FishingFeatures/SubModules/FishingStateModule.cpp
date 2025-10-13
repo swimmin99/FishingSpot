@@ -6,7 +6,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
 
 void UFishingStateModule::Initialize(UFishingComponent* InOwner, AFishingCharacter* InCharacter)
 {
@@ -73,7 +73,7 @@ void UFishingStateModule::EnterFishing()
 	if (OwnerComponent->CastModule && !OwnerComponent->CastModule->CheckCastingCollision(TargetLocation))
 	{
 		UE_LOG(LogFishingComponent, Warning, TEXT("Casting blocked by collision!"));
-		SetState(EFishingState::Exit);
+		OwnerComponent->Server_SetState(EFishingState::Exit);
 		
 		if (OwnerComponent->BobberModule)
 		{

@@ -4,7 +4,7 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "CollisionQueryParams.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
 
 void UFishingCastModule::Initialize(UFishingComponent* InOwner, AFishingCharacter* InCharacter)
 {

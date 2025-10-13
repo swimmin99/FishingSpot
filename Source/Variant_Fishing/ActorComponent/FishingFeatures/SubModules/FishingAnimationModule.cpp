@@ -3,7 +3,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
 
 void UFishingAnimationModule::Initialize(UFishingComponent* InOwner,
                                          USkeletalMeshComponent* InCharacterMesh,

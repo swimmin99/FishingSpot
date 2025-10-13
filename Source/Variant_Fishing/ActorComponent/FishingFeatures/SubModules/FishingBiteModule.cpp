@@ -7,7 +7,7 @@
 #include "DrawDebugHelpers.h"
 #include "FishingCharacter.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
 
 void UFishingBiteModule::Initialize(UFishingComponent* InOwner)
 {

@@ -10,9 +10,9 @@
 #include "Components/SizeBox.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Variant_Fishing/Data/ItemBase.h"
-#include "Variant_Fishing/ActorComponent/InventoryComponent.h"
+#include "././../Fishing.h"
+#include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogInventory, Log, All);
 
 void UItemWidget::NativeConstruct()
 {
