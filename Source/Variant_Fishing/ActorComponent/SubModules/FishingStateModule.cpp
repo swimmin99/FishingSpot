@@ -102,7 +102,7 @@ void UFishingStateModule::EnterFishing()
 		OwnerComponent->BobberModule->Show(TargetLocation);
 	}
 	
-	SetState(EFishingState::Idle);
+	OwnerComponent->Server_SetState(EFishingState::Idle);
 	
 	UE_LOG(LogFishingComponent, Log, TEXT("Entered fishing - waiting for fish at %s"), 
 	       *TargetLocation.ToString());
@@ -147,7 +147,7 @@ void UFishingStateModule::ExitFishing()
 		OwnerComponent->bInBiteWindow = false;
 	}
 
-	SetState(EFishingState::None);
+	OwnerComponent->Server_SetState(EFishingState::None);
 
 	// Unlock player movement
 	LockMovement(false);
@@ -210,7 +210,8 @@ void UFishingStateModule::OnStateEntered(EFishingState NewState)
 		break;
 		
 	case EFishingState::Exit:
-		ExitFishing();
+		//TODO Implement FallBack call for 		ExitFishing();
+
 		break;
 		
 	default:

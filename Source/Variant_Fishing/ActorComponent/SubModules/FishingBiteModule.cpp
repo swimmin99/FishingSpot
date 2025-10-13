@@ -317,18 +317,23 @@ void UFishingBiteModule::OnBiteTimeout()
 		return;
 	}
 
-	UE_LOG(LogFishingComponent, Warning, TEXT("Bite window timeout - fish got away!"));
+	UE_LOG(LogFishingComponent, Log, TEXT("Bite window timeout - fish got away!"));
 
+	if (CurrentBitingFish)
+	{
+		CurrentBitingFish->OnEscaped();
+		CurrentBitingFish = nullptr;
+	} else
+	{
+		UE_LOG(LogFishingComponent, Warning, TEXT("Bite window timeout - current fish null"));
+	}
+	
 	bInBiteWindow = false;
 	OwnerComponent->bInBiteWindow = false;
 
 	OwnerComponent->Server_SetState(EFishingState::Exit);
 	
-	if (CurrentBitingFish)
-	{
-		CurrentBitingFish->OnEscaped();
-		CurrentBitingFish = nullptr;
-	}
+	
 }
 
 void UFishingBiteModule::ClearTimers()

@@ -371,6 +371,7 @@ void UFishingComponent::Server_SetState_Implementation(EFishingState NewState)
 		break;
 
 	case EFishingState::Idle:
+		UE_LOG(LogFishingComponent, Log, TEXT("Enter State (SetState) Idle"));
 		Multicast_PlayFishingAnimation(Sec_Idle, true);
 		if (BobberModule)
 		{
@@ -404,7 +405,7 @@ void UFishingComponent::Server_SetState_Implementation(EFishingState NewState)
 		break;
 
 	case EFishingState::Exit:
-		Multicast_PlayFishingAnimation(Sec_TakingOff, true);
+		Multicast_PlayFishingAnimation(Sec_TakingOff, false);
 		break;
 
 	case EFishingState::None:
@@ -423,6 +424,8 @@ void UFishingComponent::Server_SetState_Implementation(EFishingState NewState)
 
 void UFishingComponent::Multicast_PlayFishingAnimation_Implementation(FName SectionName, bool bPositionRotHand)
 {
+	UE_LOG(LogFishingComponent, Log, TEXT("Multicast Play Anim Called: %s, HandPos=%d"),
+	       *SectionName.ToString(), bPositionRotHand);
 	if (AnimationModule)
 	{
 		AnimationModule->PlayWithHandPosition(SectionName, bPositionRotHand);

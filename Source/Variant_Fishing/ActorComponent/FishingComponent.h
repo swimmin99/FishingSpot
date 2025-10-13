@@ -136,6 +136,8 @@ protected:
 	void ProcessFishingSuccess();
 
 protected:
+	
+	
 	// ========== SUB-MODULES ==========
 	
 	UPROPERTY()

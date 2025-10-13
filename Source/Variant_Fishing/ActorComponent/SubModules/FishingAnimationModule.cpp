@@ -43,6 +43,8 @@ void UFishingAnimationModule::PlayMontageSection(FName SectionName)
 
 void UFishingAnimationModule::PlayWithHandPosition(FName SectionName, bool bPositionRotHand)
 {
+	UE_LOG(LogFishingComponent, Log, TEXT("PlayWithHandPosition Called"));
+
 	if (bPositionRotHand)
 	{
 		UpdateFishingRodSocket(ActiveFishingSocket);

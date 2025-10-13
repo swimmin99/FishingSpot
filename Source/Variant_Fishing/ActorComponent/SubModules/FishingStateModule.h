@@ -28,12 +28,12 @@ UCLASS()
 class FISHING_API UFishingStateModule : public UObject
 {
 	GENERATED_BODY()
-
+	friend class UFishingComponent;
+	
 public:
 	void Initialize(UFishingComponent* InOwner, AFishingCharacter* InCharacter);
 	
 	// State management
-	void SetState(EFishingState NewState);
 	EFishingState GetState() const { return FishState; }
 	static const TCHAR* StateToString(EFishingState State);
 	
@@ -48,8 +48,8 @@ public:
 
 protected:
 	void OnStateEntered(EFishingState NewState);
+	void SetState(EFishingState NewState);
 
-protected:
 	UPROPERTY()
 	UFishingComponent* OwnerComponent = nullptr;
 	
