@@ -11,6 +11,15 @@
 
 DEFINE_LOG_CATEGORY(LogFishSpawnPool);
 
+AFishSpawnPool::AFishSpawnPool()
+{
+	PrimaryActorTick.bCanEverTick = true;
+
+	// Create SpawnBox component
+	SpawnBox = CreateDefaultSubobject<UBoxComponent>(TEXT("SpawnBox"));
+	RootComponent = SpawnBox;
+}
+
 void AFishSpawnPool::BeginPlay()
 {
 	Super::BeginPlay();
@@ -21,6 +30,13 @@ void AFishSpawnPool::BeginPlay()
 		UE_LOG(LogFishSpawnPool, Log, TEXT("Added 'FishingWater' tag to FishSpawnPool"));
 	}
 
+	// FIXED: Changed from if(SpawnBox) to if(!SpawnBox)
+	if(!SpawnBox)
+	{
+		UE_LOG(LogFishSpawnPool, Error, TEXT("SpawnBox is null! Cannot initialize FishSpawnPool"));
+		return;
+	}
+	
 	SpawnBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	SpawnBox->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
@@ -78,7 +94,7 @@ void AFishSpawnPool::Tick(float DeltaTime)
 		ManageFish(DeltaTime);
 	}
 
-	if (bShowDebugBox)
+	if (bShowDebugBox && SpawnBox)
 	{
 		FVector BoxExtent = SpawnBox->GetScaledBoxExtent();
 		FVector BoxCenter = GetActorLocation();
@@ -332,6 +348,11 @@ FVector AFishSpawnPool::GetSafeAreaCenter() const
 
 FVector AFishSpawnPool::GetSafeAreaExtent() const
 {
+	if (!SpawnBox)
+	{
+		return FVector::ZeroVector;
+	}
+
 	FVector BoxExtent = SpawnBox->GetScaledBoxExtent();
 	return FVector(
 		BoxExtent.X - BorderOffset,
@@ -609,6 +630,11 @@ void AFishSpawnPool::RemoveFish(AFish* Fish, bool bCaught)
 
 bool AFishSpawnPool::IsLocationInBounds(const FVector& Location) const
 {
+	if (!SpawnBox)
+	{
+		return false;
+	}
+
 	FVector BoxExtent = SpawnBox->GetScaledBoxExtent();
 	FVector BoxCenter = GetActorLocation();
 
@@ -620,6 +646,11 @@ bool AFishSpawnPool::IsLocationInBounds(const FVector& Location) const
 
 FVector AFishSpawnPool::ClampLocationToBounds(const FVector& Location) const
 {
+	if (!SpawnBox)
+	{
+		return Location;
+	}
+
 	FVector BoxExtent = SpawnBox->GetScaledBoxExtent();
 	FVector BoxCenter = GetActorLocation();
 

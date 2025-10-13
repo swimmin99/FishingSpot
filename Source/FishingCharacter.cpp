@@ -1,7 +1,6 @@
-
-
 #include "FishingCharacter.h"
 #include "Variant_Fishing/ActorComponent/FishingComponent.h"
+#include "Variant_Fishing/ActorComponent/SubModules/FishingStateModule.h"
 #include "FishingPlayerController.h"
 
 #include "Camera/CameraComponent.h"
@@ -69,6 +68,7 @@ AFishingCharacter::AFishingCharacter()
 	Bobber->SetupAttachment(RootComponent);
 	Bobber->SetVisibility(false);
 	Bobber->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
 	SplashEffectComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("BobberEffectComponent"));
 	SplashEffectComponent->SetupAttachment(Bobber);
 	SplashEffectComponent->SetAutoActivate(false);
@@ -77,24 +77,16 @@ AFishingCharacter::AFishingCharacter()
 	InteractionCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("InteractionCapsule"));
 	InteractionCapsule->SetupAttachment(RootComponent);
 	InteractionCapsule->InitCapsuleSize(50.f, 50.f);
-	
-	
 	InteractionCapsule->SetRelativeLocation(FVector(80.f, 0.f, 0.f));
-	
-	
 	InteractionCapsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	InteractionCapsule->SetCollisionObjectType(ECC_WorldDynamic);
 	InteractionCapsule->SetCollisionResponseToAllChannels(ECR_Overlap);
-	
-	
 	InteractionCapsule->OnComponentBeginOverlap.AddDynamic(this, &AFishingCharacter::OnInteractionBeginOverlap);
 	InteractionCapsule->OnComponentEndOverlap.AddDynamic(this, &AFishingCharacter::OnInteractionEndOverlap);
 
 	CoreFishingComponent = CreateDefaultSubobject<UFishingComponent>(TEXT("FishingComponent"));
 	CoreInventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 
-
-	
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -110,7 +102,6 @@ void AFishingCharacter::OnInteractionBeginOverlap(UPrimitiveComponent* Overlappe
 		return;
 	}
 	
-	
 	if (AFishingPlayerController* PC = Cast<AFishingPlayerController>(GetController()))
 	{
 		PC->ShowInteractionPrompt(OtherActor);
@@ -125,7 +116,6 @@ void AFishingCharacter::OnInteractionEndOverlap(UPrimitiveComponent* OverlappedC
 	if (OtherActor && OtherActor == CurrentOverlapActor)
 	{
 		CurrentOverlapActor = nullptr;
-		
 		
 		if (AFishingPlayerController* PC = Cast<AFishingPlayerController>(GetController()))
 		{
@@ -148,7 +138,6 @@ void AFishingCharacter::ExecuteInteract()
 		{
 			if (IsLocallyControlled())
 			{
-				
 				if (AFishingPlayerController* PC = Cast<AFishingPlayerController>(GetController()))
 				{
 					PC->OpenShopUI(ShopActor, CoreInventoryComponent);
@@ -196,11 +185,11 @@ void AFishingCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	
+	// Initialize components
 	CoreInventoryComponent->Initalize(this);
 	CoreFishingComponent->Initialize(GetMesh(), FishingRod, Bobber, SplashEffectComponent, this);
 	
-	
+	// Initialize player controller widgets
 	if (AFishingPlayerController* PC = Cast<AFishingPlayerController>(GetController()))
 	{
 		if (PC->IsLocalController())
@@ -265,7 +254,8 @@ void AFishingCharacter::Tick(float DeltaSeconds)
 		FString StateStr = TEXT("None");
 		if (CoreFishingComponent->IsFishing())
 		{
-			StateStr = UFishingComponent::FishingStateToStr(CoreFishingComponent->GetFishState());
+			// Use the static helper from StateModule
+			StateStr = UFishingStateModule::StateToString(CoreFishingComponent->GetFishState());
 		}
 
 		FString DebugText = FString::Printf(TEXT("State: %s | IsFishing: %s | InBiteWindow: %s | Speed: %.1f"),
@@ -359,6 +349,7 @@ void AFishingCharacter::ApplyMeshIndex()
 			MeshIndex, *GetName());
 	}
 }
+
 void AFishingCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D Axis = Value.Get<FVector2D>();
@@ -394,7 +385,6 @@ void AFishingCharacter::DoLook(float Yaw, float Pitch)
 
 void AFishingCharacter::OnToggleInventory()
 {
-	
 	if (AFishingPlayerController* PC = Cast<AFishingPlayerController>(GetController()))
 	{
 		PC->ToggleInventory(CoreInventoryComponent);
@@ -417,51 +407,40 @@ void AFishingCharacter::OnPrimary()
 void AFishingCharacter::OnFishingStateChanged(EFishingState OldState, EFishingState NewState)
 {
 	UE_LOG(LogTemplateCharacter, Log, TEXT("Fishing state changed: %s -> %s"), 
-		UFishingComponent::FishingStateToStr(OldState),
-		UFishingComponent::FishingStateToStr(NewState));
+		UFishingStateModule::StateToString(OldState),
+		UFishingStateModule::StateToString(NewState));
 }
 
 void AFishingCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    bTearingDown = true;
+	bTearingDown = true;
 
-    
-    if (AFishingPlayerController* PC = Cast<AFishingPlayerController>(GetController()))
-    {
-        PC->HideInteractionPrompt();
-        
-        
-    }
+	if (AFishingPlayerController* PC = Cast<AFishingPlayerController>(GetController()))
+	{
+		PC->HideInteractionPrompt();
+	}
 
-    
-    if (InteractionCapsule)
-    {
-        InteractionCapsule->OnComponentBeginOverlap.RemoveDynamic(this, &AFishingCharacter::OnInteractionBeginOverlap);
-        InteractionCapsule->OnComponentEndOverlap.RemoveDynamic(this, &AFishingCharacter::OnInteractionEndOverlap);
-    }
+	if (InteractionCapsule)
+	{
+		InteractionCapsule->OnComponentBeginOverlap.RemoveDynamic(this, &AFishingCharacter::OnInteractionBeginOverlap);
+		InteractionCapsule->OnComponentEndOverlap.RemoveDynamic(this, &AFishingCharacter::OnInteractionEndOverlap);
+	}
 
-    
-    if (CoreFishingComponent)
-    {
-        
-    }
+	CurrentOverlapActor = nullptr;
 
-    
-    CurrentOverlapActor = nullptr;
-
-    Super::EndPlay(EndPlayReason);
+	Super::EndPlay(EndPlayReason);
 }
 
 void AFishingCharacter::BeginDestroy()
 {
-    // 방어적 중복 해제 (엔진 파괴 순서 이슈 대비)
-    if (InteractionCapsule)
-    {
-        InteractionCapsule->OnComponentBeginOverlap.RemoveAll(this);
-        InteractionCapsule->OnComponentEndOverlap.RemoveAll(this);
-    }
+	// Defensive unbinding (engine destruction order safety)
+	if (InteractionCapsule)
+	{
+		InteractionCapsule->OnComponentBeginOverlap.RemoveAll(this);
+		InteractionCapsule->OnComponentEndOverlap.RemoveAll(this);
+	}
 
-    CurrentOverlapActor = nullptr;
+	CurrentOverlapActor = nullptr;
 
-    Super::BeginDestroy();
+	Super::BeginDestroy();
 }

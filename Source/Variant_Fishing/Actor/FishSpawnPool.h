@@ -31,8 +31,9 @@ class FISHING_API AFishSpawnPool : public AActor
 	GENERATED_BODY()
 
 public:
-	AFishSpawnPool();
 
+	AFishSpawnPool();
+	
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION(BlueprintCallable, Category="FishPool")

@@ -8,19 +8,493 @@
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
-#include "Kismet/KismetSystemLibrary.h"
-#include "Kismet/GameplayStatics.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
 #include "FishingCharacter.h"
-#include "InventoryComponent.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "NiagaraComponent.h"
-#include "Variant_Fishing/Data/FishData.h"
+#include "SubModules/FishingAnimationModule.h"
+#include "SubModules/FishingBiteModule.h"
+#include "SubModules/FishingBobberModule.h"
+#include "SubModules/FishingCastModule.h"
+#include "SubModules/FishingInventoryModule.h"
 #include "Variant_Fishing/Actor/Fish.h"
-#include "Variant_Fishing/Actor/FishSpawnPool.h"
 #include "Variant_Fishing/Actor/ItemActor.h"
-#include "Variant_Fishing/Data/ItemBase.h"
+
+DEFINE_LOG_CATEGORY(LogFishingComponent);
+
+UFishingComponent::UFishingComponent()
+{
+	PrimaryComponentTick.bCanEverTick = true;
+	SetIsReplicatedByDefault(true);
+}
+
+void UFishingComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UFishingComponent, bBobberActive);
+	DOREPLIFETIME(UFishingComponent, BobberTargetLocation);
+	DOREPLIFETIME(UFishingComponent, FishState);
+	DOREPLIFETIME(UFishingComponent, bIsFishing);
+	DOREPLIFETIME(UFishingComponent, bInBiteWindow);
+	DOREPLIFETIME(UFishingComponent, CurrentDisplayFishItem);
+	DOREPLIFETIME(UFishingComponent, CurrentFishingRodSocket);
+}
+
+void UFishingComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	// Create all sub-modules
+	BobberModule = NewObject<UFishingBobberModule>(this);
+	AnimationModule = NewObject<UFishingAnimationModule>(this);
+	BiteModule = NewObject<UFishingBiteModule>(this);
+	CastModule = NewObject<UFishingCastModule>(this);
+	InventoryModule = NewObject<UFishingInventoryModule>(this);
+	StateModule = NewObject<UFishingStateModule>(this);
+	
+	UE_LOG(LogFishingComponent, Log, TEXT("FishingComponent BeginPlay - All modules created"));
+}
+
+void UFishingComponent::Initialize(USkeletalMeshComponent* InCharacterMesh,
+                                   UStaticMeshComponent* InFishingRod,
+                                   UStaticMeshComponent* InBobber,
+                                   UNiagaraComponent* InSplashEffect,
+                                   AFishingCharacter* InOwnerCharacter)
+{
+	CharacterMesh = InCharacterMesh;
+	FishingRod = InFishingRod;
+	Bobber = InBobber;
+	SplashEffect = InSplashEffect;
+	OwnerCharacter = InOwnerCharacter;
+	
+	// ========== Initialize BobberModule ==========
+	if (BobberModule)
+	{
+		BobberModule->Initialize(this, Bobber, SplashEffect);
+		
+		// Configure bobber parameters from FishingComponent settings
+		BobberModule->SetFakeBiteDipAmount(FakeBiteDipAmount);
+		BobberModule->SetFakeBiteAnimSpeed(FakeBiteAnimSpeed);
+		BobberModule->SetRealBiteAnimSpeed(RealBiteAnimSpeed);
+		BobberModule->SetRealBiteSinkAmount(RealBiteSinkAmount);
+		
+		UE_LOG(LogFishingComponent, Log, TEXT("BobberModule initialized with config"));
+	}
+	
+	// ========== Initialize AnimationModule ==========
+	if (AnimationModule)
+	{
+		AnimationModule->Initialize(this, CharacterMesh, FishingRod);
+		AnimationModule->SetMontage(FishingMontage);
+		AnimationModule->SetIdleSocket(IdleFishingSocket);
+		AnimationModule->SetActiveSocket(ActiveFishingSocket);
+		
+		// Set initial socket position
+		CurrentFishingRodSocket = IdleFishingSocket;
+		AnimationModule->AttachToIdleSocket();
+		
+		UE_LOG(LogFishingComponent, Log, TEXT("AnimationModule initialized with montage and sockets"));
+	}
+	
+	// ========== Initialize BiteModule ==========
+	if (BiteModule)
+	{
+		BiteModule->Initialize(this);
+		
+		UE_LOG(LogFishingComponent, Log, TEXT("BiteModule initialized"));
+	}
+	
+	// ========== Initialize CastModule ==========
+	if (CastModule)
+	{
+		CastModule->Initialize(this, OwnerCharacter);
+		
+		// Configure casting parameters from FishingComponent settings
+		CastModule->SetForwardOffset(CastCheckForwardOffset);
+		CastModule->SetDownOffset(CastCheckDownOffset);
+		CastModule->SetMaxHeight(CastMaxHeight);
+		CastModule->SetFishingWaterTag(FishingWaterTag);
+		CastModule->SetShowDebug(bShowDebugCasting);
+		
+		UE_LOG(LogFishingComponent, Log, TEXT("CastModule initialized with config"));
+	}
+	
+	// ========== Initialize InventoryModule ==========
+	if (InventoryModule)
+	{
+		InventoryModule->Initialize(this, OwnerCharacter, CharacterMesh);
+		InventoryModule->SetItemActorClass(ItemActorSubClass);
+		InventoryModule->SetShowOffSocket(ShowOffSocket);
+		
+		UE_LOG(LogFishingComponent, Log, TEXT("InventoryModule initialized"));
+	}
+	
+	// ========== Initialize StateModule ==========
+	if (StateModule)
+	{
+		StateModule->Initialize(this, OwnerCharacter);
+		
+		UE_LOG(LogFishingComponent, Log, TEXT("StateModule initialized"));
+	}
+	
+	UE_LOG(LogFishingComponent, Log, TEXT("=== FishingComponent fully initialized with all modules ==="));
+}
+
+void UFishingComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+                                      FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// Update bobber movement
+	if (BobberModule && bBobberActive)
+	{
+		BobberModule->UpdateMovement(DeltaTime, FishState);
+	}
+
+	// Update bite fight mechanics
+	if (BiteModule && FishState == EFishingState::BiteFight)
+	{
+		BiteModule->UpdateBiteFight(DeltaTime);
+	}
+}
+
+// ========== ProcessFishingSuccess Implementation ==========
+void UFishingComponent::ProcessFishingSuccess()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		UE_LOG(LogFishingComponent, Error, TEXT("ProcessFishingSuccess: GetWorld() returned null!"));
+		return;
+	}
+
+	Server_SetState(EFishingState::PullOut);
+	
+	if (BiteModule)
+	{
+		BiteModule->SetInBiteWindow(false);
+		bInBiteWindow = false;
+		BiteModule->ClearTimers();
+	}
+	
+	if (BobberModule)
+	{
+		BobberModule->Hide();
+	}
+
+	if (InventoryModule && BiteModule)
+	{
+		AFish* CaughtFish = BiteModule->GetCurrentBitingFish();
+		if (CaughtFish)
+		{
+			InventoryModule->CreateFishItemFromCatch(CaughtFish);
+			BiteModule->ClearCurrentBitingFish();
+		}
+	}
+}
+
+// ========== PUBLIC INTERFACE IMPLEMENTATIONS ==========
+
+void UFishingComponent::OnPrimaryInput()
+{
+	if (!OwnerCharacter || !OwnerCharacter->IsLocallyControlled())
+	{
+		return;
+	}
+
+	UE_LOG(LogFishingComponent, Log, TEXT("OnPrimaryInput! IsFishing=%d State=%s"),
+	       bIsFishing, UFishingStateModule::StateToString(FishState));
+
+	Server_RequestPrimary();
+}
+
+bool UFishingComponent::IsFishing() const
+{
+	return StateModule ? StateModule->IsFishing() : bIsFishing;
+}
+
+bool UFishingComponent::IsInBiteWindow() const
+{
+	return BiteModule ? BiteModule->IsInBiteWindow() : bInBiteWindow;
+}
+
+EFishingState UFishingComponent::GetFishState() const
+{
+	return StateModule ? StateModule->GetState() : FishState;
+}
+
+AFish* UFishingComponent::GetCurrentBitingFish() const
+{
+	return BiteModule ? BiteModule->GetCurrentBitingFish() : nullptr;
+}
+
+void UFishingComponent::OnFishBite(AFish* Fish)
+{
+	if (BiteModule)
+	{
+		BiteModule->OnFishBite(Fish);
+	}
+}
+
+void UFishingComponent::OnFishFakeBite(AFish* Fish, float FakeBiteTime)
+{
+	if (BiteModule)
+	{
+		BiteModule->OnFishFakeBite(Fish, FakeBiteTime);
+	}
+}
+
+// ========== ANIMATION NOTIFIES ==========
+
+void UFishingComponent::OnAnimNotify_CastEnd()
+{
+	if (!OwnerCharacter || !OwnerCharacter->HasAuthority())
+	{
+		return;
+	}
+	
+	if (StateModule)
+	{
+		StateModule->EnterFishing();
+	}
+}
+
+void UFishingComponent::OnAnimNotify_PullOutEnd()
+{
+	if (!OwnerCharacter || !OwnerCharacter->HasAuthority())
+	{
+		return;
+	}
+
+	if (CurrentDisplayFishItem)
+	{
+		Server_SetState(EFishingState::ShowOff);
+		OwnerCharacter->SwitchToShowOffCamera(true);
+		Multicast_ShowFishItem();
+	}
+	else
+	{
+		Server_SetState(EFishingState::Exit);
+	}
+}
+
+void UFishingComponent::OnAnimNotify_TakingOffEnd()
+{
+	if (!OwnerCharacter || !OwnerCharacter->HasAuthority())
+	{
+		return;
+	}
+
+	if (StateModule)
+	{
+		StateModule->ExitFishing();
+	}
+}
+
+void UFishingComponent::OnAnimNotify_ShowOffEnd()
+{
+	if (!OwnerCharacter || !OwnerCharacter->HasAuthority())
+	{
+		return;
+	}
+	
+	OwnerCharacter->SwitchToShowOffCamera(false);
+	
+	if (InventoryModule)
+	{
+		InventoryModule->AddFishToInventory();
+	}
+	
+	Server_SetState(EFishingState::Exit);
+}
+
+// ========== SERVER RPCS ==========
+
+void UFishingComponent::Server_RequestPrimary_Implementation()
+{
+	if (!OwnerCharacter || !OwnerCharacter->HasAuthority())
+	{
+		return;
+	}
+
+	if (!StateModule)
+	{
+		return;
+	}
+
+	if (!bIsFishing)
+	{
+		Server_SetState(EFishingState::Casting);
+		StateModule->LockMovement(true);
+		return;
+	}
+
+	switch (FishState)
+	{
+	case EFishingState::Idle:
+		Server_SetState(EFishingState::Exit);
+		if (BobberModule)
+		{
+			BobberModule->Hide();
+		}
+		break;
+
+	case EFishingState::BiteWindow:
+		if (BiteModule)
+		{
+			BiteModule->HandleBiteWindow();
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+void UFishingComponent::Server_SetState_Implementation(EFishingState NewState)
+{
+	const EFishingState OldState = FishState;
+	FishState = NewState;
+	
+	if (StateModule)
+	{
+		StateModule->SetState(NewState);
+	}
+
+	OnStateChanged.Broadcast(OldState, NewState);
+
+	// Handle state-specific logic
+	switch (NewState)
+	{
+	case EFishingState::Casting:
+		Multicast_PlayFishingAnimation(Sec_Cast, true);
+		break;
+
+	case EFishingState::Idle:
+		Multicast_PlayFishingAnimation(Sec_Idle, true);
+		if (BobberModule)
+		{
+			BobberModule->SetState(EBobberState::Idle);
+			BobberModule->ResetAnimation();
+		}
+		break;
+
+	case EFishingState::BiteWindow:
+		Multicast_PlayFishingAnimation(Sec_Bite, true);
+		break;
+
+	case EFishingState::BiteFight:
+		Multicast_PlayFishingAnimation(Sec_FishFight, true);
+		if (BiteModule)
+		{
+			BiteModule->InitBiteFight();
+		}
+		break;
+
+	case EFishingState::PullOut:
+		Multicast_PlayFishingAnimation(Sec_PullOut, true);
+		break;
+
+	case EFishingState::ShowOff:
+		if (CurrentDisplayFishItem)
+		{
+			CurrentDisplayFishItem->SetHidden(false);
+		}
+		Multicast_PlayFishingAnimation(Sec_ShowOff, false);
+		break;
+
+	case EFishingState::Exit:
+		Multicast_PlayFishingAnimation(Sec_TakingOff, true);
+		break;
+
+	case EFishingState::None:
+		if (AnimationModule)
+		{
+			AnimationModule->AttachToIdleSocket();
+			AnimationModule->StopMontage();
+		}
+		break;
+	}
+
+	OnRep_FishState();
+}
+
+// ========== MULTICAST RPCS ==========
+
+void UFishingComponent::Multicast_PlayFishingAnimation_Implementation(FName SectionName, bool bPositionRotHand)
+{
+	if (AnimationModule)
+	{
+		AnimationModule->PlayWithHandPosition(SectionName, bPositionRotHand);
+	}
+}
+
+void UFishingComponent::Multicast_ShowFishItem_Implementation()
+{
+	if (InventoryModule && CurrentDisplayFishItem)
+	{
+		InventoryModule->AttachAndRevealShowOffItem(ShowOffSocket);
+	}
+}
+
+// ========== REPLICATION CALLBACKS ==========
+
+void UFishingComponent::OnRep_CurrentSocket()
+{
+	if (AnimationModule)
+	{
+		AnimationModule->UpdateFishingRodSocket(CurrentFishingRodSocket);
+	}
+}
+
+void UFishingComponent::OnRep_CurrentDisplayFishItem()
+{
+	if (CurrentDisplayFishItem && InventoryModule)
+	{
+		InventoryModule->AttachAndRevealShowOffItem(ShowOffSocket);
+	}
+}
+
+void UFishingComponent::OnRep_FishState()
+{
+	UE_LOG(LogFishingComponent, Log, TEXT("State -> %s"), 
+	       UFishingStateModule::StateToString(FishState));
+	
+	if (FishState == EFishingState::ShowOff && CurrentDisplayFishItem && InventoryModule)
+	{
+		InventoryModule->AttachAndRevealShowOffItem(ShowOffSocket);
+	}
+	
+	if (OwnerCharacter)
+	{
+		OwnerCharacter->OnFishingStateChanged(EFishingState::None, FishState);
+	}
+}
+
+void UFishingComponent::OnRep_BobberActive()
+{
+	if (BobberModule)
+	{
+		if (bBobberActive)
+		{
+			BobberModule->Show(BobberTargetLocation);
+		}
+		else
+		{
+			BobberModule->Hide();
+		}
+	}
+}
+
+void UFishingComponent::OnRep_BobberTarget()
+{
+	if (BobberModule && bBobberActive)
+	{
+		BobberModule->SetTargetLocation(BobberTargetLocation);
+	}
+}
+
+/*
 
 DEFINE_LOG_CATEGORY(LogFishingComponent);
 
@@ -1365,3 +1839,5 @@ void UFishingComponent::AttachAndRevealShowOffItem()
 		Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
+
+*/
