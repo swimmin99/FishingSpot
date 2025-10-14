@@ -8,10 +8,10 @@
 #include "InventoryItemHandler.h"
 #include "InventoryGridManager.h"
 #include "InventoryStorage.h"
+#include "Fishing.h"
 #include "InventoryPlacementValidator.h"
 #include "Variant_Fishing/Data/ItemBase.h"
 
-DEFINE_LOG_CATEGORY(LogInventoryHandler);
 
 void UInventoryItemHandler::Initialize(UInventoryGridManager* InGridManager,
                                        UInventoryStorage* InStorage,

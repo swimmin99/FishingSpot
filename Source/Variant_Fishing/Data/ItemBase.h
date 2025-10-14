@@ -7,6 +7,25 @@
 class UItemDataAsset;
 class AItemActor;
 
+
+USTRUCT(BlueprintType)
+struct FInventoryItemData
+{
+	GENERATED_BODY()
+    
+	UPROPERTY()
+	UItemDataAsset* ItemDef;      // 아이템 정의
+    
+	UPROPERTY()
+	bool bIsRotated;              // 회전 여부
+    
+	UPROPERTY()
+	FGuid ItemGuid;               // 고유 ID
+    
+	UPROPERTY()
+	int32 TopLeftIndex;           // 그리드 위치
+};
+
 UCLASS(BlueprintType, DefaultToInstanced, EditInlineNew)
 class FISHING_API UItemBase : public UObject
 {

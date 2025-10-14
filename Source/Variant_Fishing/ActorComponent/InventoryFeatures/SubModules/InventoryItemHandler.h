@@ -4,7 +4,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
 #include "InventoryItemHandler.generated.h"
 
 class UInventoryGridManager;
@@ -12,7 +11,6 @@ class UInventoryStorage;
 class UInventoryPlacementValidator;
 class UItemBase;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogInventoryHandler, Log, All);
 
 /**
  * Handles item operations: add, remove, move, place

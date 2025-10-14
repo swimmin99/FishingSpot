@@ -2,11 +2,11 @@
 // InventoryPlacementValidator.cpp
 // ============================================
 #include "InventoryPlacementValidator.h"
+
+#include "Fishing.h"
 #include "InventoryGridManager.h"
 #include "InventoryStorage.h"
 #include "Variant_Fishing/Data/ItemBase.h"
-
-DEFINE_LOG_CATEGORY(LogInventoryValidator);
 
 void UInventoryPlacementValidator::Initialize(UInventoryGridManager* InGridManager, 
                                               UInventoryStorage* InStorage)

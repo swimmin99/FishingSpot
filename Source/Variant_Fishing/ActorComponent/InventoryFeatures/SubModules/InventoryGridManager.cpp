@@ -7,7 +7,7 @@
 // ============================================
 #include "InventoryGridManager.h"
 
-DEFINE_LOG_CATEGORY(LogInventoryGrid);
+#include "Fishing.h"
 
 void UInventoryGridManager::Initialize(int32 InColumns, int32 InRows, float InTileSize)
 {

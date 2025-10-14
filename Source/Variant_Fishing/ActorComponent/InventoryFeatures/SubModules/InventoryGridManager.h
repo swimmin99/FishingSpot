@@ -7,7 +7,6 @@
 #include "UObject/NoExportTypes.h"
 #include "InventoryGridManager.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogInventoryGrid, Log, All);
 
 /**
  * Manages grid layout, dimensions, and coordinate conversions

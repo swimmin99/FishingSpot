@@ -10,7 +10,7 @@
 #include "Components/SizeBox.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Variant_Fishing/Data/ItemBase.h"
-#include "././../Fishing.h"
+#include "Fishing.h"
 #include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
 
 

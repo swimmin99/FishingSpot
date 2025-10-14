@@ -7,9 +7,9 @@
 #include "Components/BoxComponent.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
+#include "Fishing.h"
 #include "Kismet/GameplayStatics.h"
 
-DEFINE_LOG_CATEGORY(LogFishSpawnPool);
 
 AFishSpawnPool::AFishSpawnPool()
 {

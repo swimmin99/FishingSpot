@@ -3,12 +3,12 @@
 // InventoryNetworkSync.cpp
 // ============================================
 #include "InventoryNetworkSync.h"
+
+#include "Fishing.h"
 #include "../InventoryComponent.h"
 #include "InventoryStorage.h"
 #include "InventoryGridManager.h"
 #include "Variant_Fishing/Data/ItemBase.h"
-
-DEFINE_LOG_CATEGORY(LogInventoryNetwork);
 
 void UInventoryNetworkSync::Initialize(UInventoryComponent* InOwnerComponent,
 									  UInventoryStorage* InStorage,

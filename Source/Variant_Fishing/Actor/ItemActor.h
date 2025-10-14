@@ -27,13 +27,16 @@ public:
 	AItemActor();
 	void InitFromItem(const UItemBase* Item);
 	void ApplyFromDataAsset();
-	void InitPhysicsSetting();
+    
 	UItemDataAsset* GetItemData() { return ItemDef; }
 	UItemBase* MakeItemInstance(UInventoryComponent* InventoryComponent, AActor* OwnerRef);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Base|Inventory")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Base|Inventory", Replicated)
 	UItemDataAsset* ItemDef = nullptr;
+    
+	void PrepareForPickup();
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

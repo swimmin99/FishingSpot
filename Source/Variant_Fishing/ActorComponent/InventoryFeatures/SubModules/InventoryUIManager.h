@@ -11,7 +11,6 @@
 class UInventoryWidget;
 class UItemBase;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogInventoryUI, Log, All);
 
 /**
  * Manages UI widgets and visual updates

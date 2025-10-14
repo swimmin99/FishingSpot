@@ -2,6 +2,7 @@
 
 #include "FishingPlayerController.h"
 #include "EnhancedInputSubsystems.h"
+#include "Fishing.h"
 #include "Engine/LocalPlayer.h"
 #include "InputMappingContext.h"
 #include "InteractableCharacter.h"
@@ -16,7 +17,6 @@
 #include "Variant_Fishing/NPC/ShopCharacter.h"
 #include "Variant_Fishing/Interface/Interactable.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogFishingPC, Log, All);
 
 
 

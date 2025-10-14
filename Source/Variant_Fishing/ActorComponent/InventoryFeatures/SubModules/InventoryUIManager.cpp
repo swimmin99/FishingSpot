@@ -2,10 +2,11 @@
 // InventoryUIManager.cpp
 // ============================================
 #include "InventoryUIManager.h"
+
+#include "Fishing.h"
 #include "Variant_Fishing/Widget/Inventory/InventoryWidget.h"
 #include "Variant_Fishing/Data/ItemBase.h"
 
-DEFINE_LOG_CATEGORY(LogInventoryUI);
 
 void UInventoryUIManager::RegisterWidget(UInventoryWidget* Widget)
 {

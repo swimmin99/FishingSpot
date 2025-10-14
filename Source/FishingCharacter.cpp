@@ -163,17 +163,56 @@ void AFishingCharacter::ExecuteEscape()
 
 void AFishingCharacter::Server_TryPickup_Implementation(AActor* Target)
 {
-	if (!Target || !CoreInventoryComponent) return;
-
-	if (AItemActor* Item = Cast<AItemActor>(Target))
+	if (!HasAuthority())
 	{
-		const bool bAdded = CoreInventoryComponent->TryAddItemFroActor(Item);
-		if (bAdded)
-		{
-			Item->Destroy();
-		}
+		UE_LOG(LogTemp, Warning, TEXT("Server_TryPickup: Not authority!"));
+		return;
+	}
+    
+	if (!Target || !CoreInventoryComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Server_TryPickup: Invalid target or inventory"));
+		return;
+	}
+
+	AItemActor* ItemActor = Cast<AItemActor>(Target);
+	if (!ItemActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Server_TryPickup: Not an ItemActor"));
+		return;
+	}
+    
+	UE_LOG(LogTemp, Log, TEXT("Server_TryPickup: Attempting to pickup %s"), 
+		   *ItemActor->GetNameFromItem());
+
+	const bool bAdded = CoreInventoryComponent->TryAddItemFroActor(ItemActor);
+    
+	if (bAdded)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Server_TryPickup: Successfully added to inventory, destroying actor"));
+        
+		ItemActor->PrepareForPickup();
+		FTimerHandle DestroyTimer;
+		GetWorld()->GetTimerManager().SetTimer(
+			DestroyTimer,
+			[ItemActor]()
+			{
+				if (ItemActor && IsValid(ItemActor))
+				{
+					ItemActor->Destroy();
+					UE_LOG(LogTemp, Log, TEXT("ItemActor destroyed"));
+				}
+			},
+			0.1f,
+			false
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Server_TryPickup: Failed to add to inventory (full?)"));
 	}
 }
+
 
 void AFishingCharacter::SwitchToShowOffCamera(bool val)
 {

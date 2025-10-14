@@ -12,7 +12,6 @@ class UInventoryStorage;
 class UInventoryGridManager;
 class UItemBase;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogInventoryNetwork, Log, All);
 
 /**
  * Handles network synchronization data preparation

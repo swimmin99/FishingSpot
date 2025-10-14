@@ -4,7 +4,6 @@
 #include "GameFramework/Actor.h"
 #include "FishSpawnPool.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogFishSpawnPool, Log, All);
 
 class UBoxComponent;
 class UFishData;

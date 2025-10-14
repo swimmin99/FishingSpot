@@ -1,25 +1,25 @@
 ﻿// ============================================
-// InventoryStorage.cpp
+// InventoryStorage.cpp (수정)
 // ============================================
 #include "InventoryStorage.h"
+
+#include "Fishing.h"
 #include "InventoryGridManager.h"
 #include "Variant_Fishing/Data/ItemBase.h"
 
-DEFINE_LOG_CATEGORY(LogInventoryStorage);
-
-void UInventoryStorage::Initialize(UInventoryGridManager* InGridManager)
+void UInventoryStorage::Initialize(UInventoryGridManager* InGridManager, UObject* InOuter)
 {
-    if (!InGridManager)
+    if (!InGridManager || !InOuter)
     {
-        UE_LOG(LogInventoryStorage, Error, TEXT("Initialize: GridManager is null!"));
+        UE_LOG(LogInventoryStorage, Error, TEXT("Initialize: Null parameters!"));
         return;
     }
     
     GridManager = InGridManager;
+    Outer = InOuter;
     ResizeStorage(true);
     
-    UE_LOG(LogInventoryStorage, Log, TEXT("Initialize: Storage ready with %d slots"), 
-           Items.Num());
+    UE_LOG(LogInventoryStorage, Log, TEXT("Initialize: Storage ready with %d slots"), Items.Num());
 }
 
 void UInventoryStorage::ResizeStorage(bool bZeroInit)
@@ -48,8 +48,7 @@ void UInventoryStorage::ResizeStorage(bool bZeroInit)
         Items.SetNum(Expected);
     }
     
-    UE_LOG(LogInventoryStorage, Log, TEXT("ResizeStorage: %d -> %d slots (ZeroInit=%s)"),
-           OldSize, Expected, bZeroInit ? TEXT("Yes") : TEXT("No"));
+    UE_LOG(LogInventoryStorage, Log, TEXT("ResizeStorage: %d -> %d slots"), OldSize, Expected);
 }
 
 UItemBase* UInventoryStorage::GetItemAtIndex(int32 Index) const
@@ -75,13 +74,9 @@ void UInventoryStorage::ClearItemAtIndex(int32 Index)
 
 void UInventoryStorage::ClearAllOccurrences(UItemBase* Item)
 {
-    if (!Item)
-    {
-        return;
-    }
+    if (!Item) return;
     
     int32 ClearedCount = 0;
-    
     for (int32 i = 0; i < Items.Num(); i++)
     {
         if (Items[i] == Item)
@@ -91,8 +86,7 @@ void UInventoryStorage::ClearAllOccurrences(UItemBase* Item)
         }
     }
     
-    UE_LOG(LogInventoryStorage, Verbose, TEXT("ClearAllOccurrences: Cleared %d slots for %s"),
-           ClearedCount, *Item->GetName());
+    UE_LOG(LogInventoryStorage, Verbose, TEXT("ClearAllOccurrences: Cleared %d slots"), ClearedCount);
 }
 
 void UInventoryStorage::ClearAll()
@@ -101,7 +95,6 @@ void UInventoryStorage::ClearAll()
     {
         Items[i] = nullptr;
     }
-    
     CachedUniqueItems.Empty();
     
     UE_LOG(LogInventoryStorage, Log, TEXT("ClearAll: All storage cleared"));
@@ -111,12 +104,10 @@ TMap<UItemBase*, FIntPoint> UInventoryStorage::GetAllUniqueItems()
 {
     if (!GridManager)
     {
-        UE_LOG(LogInventoryStorage, Error, TEXT("GetAllUniqueItems: GridManager is null!"));
         return TMap<UItemBase*, FIntPoint>();
     }
     
     TMap<UItemBase*, FIntPoint> UniqueItems;
-    
     for (int32 i = 0; i < Items.Num(); ++i)
     {
         if (UItemBase* Item = Items[i])
@@ -128,18 +119,153 @@ TMap<UItemBase*, FIntPoint> UInventoryStorage::GetAllUniqueItems()
         }
     }
     
-    UE_LOG(LogInventoryStorage, Verbose, TEXT("GetAllUniqueItems: Found %d unique items"), 
-           UniqueItems.Num());
-    
     return UniqueItems;
 }
 
 void UInventoryStorage::RefreshUniqueItemsCache()
 {
     CachedUniqueItems = GetAllUniqueItems();
-    
     UE_LOG(LogInventoryStorage, Log, TEXT("RefreshUniqueItemsCache: Cached %d items"), 
            CachedUniqueItems.Num());
+}
+
+// ★★★ 서버에서 호출: 동기화 데이터 생성 ★★★
+TArray<FItemSyncData> UInventoryStorage::GenerateSyncData() const
+{
+    TArray<FItemSyncData> SyncData;
+    TSet<FGuid> ProcessedGuids;
+    
+    if (!GridManager)
+    {
+        UE_LOG(LogInventoryStorage, Error, TEXT("GenerateSyncData: GridManager is null!"));
+        return SyncData;
+    }
+    
+    // 유니크 아이템만 전송 (같은 아이템이 여러 슬롯 차지하므로)
+    for (int32 i = 0; i < Items.Num(); i++)
+    {
+        UItemBase* Item = Items[i];
+        
+        if (!Item || !Item->ItemDef)
+            continue;
+        
+        // 이미 처리한 아이템이면 스킵
+        if (ProcessedGuids.Contains(Item->ItemGuid))
+            continue;
+        
+        // 이 아이템의 TopLeft 위치 찾기 (첫 등장 위치)
+        int32 TopLeftIndex = i;
+        
+        FItemSyncData Data(
+            Item->ItemDef,
+            Item->ItemGuid,
+            Item->bIsRotated,
+            TopLeftIndex
+        );
+        
+        SyncData.Add(Data);
+        ProcessedGuids.Add(Item->ItemGuid);
+        
+        UE_LOG(LogInventoryStorage, Verbose, TEXT("GenerateSyncData: Added %s at index %d"),
+               *Item->GetName(), TopLeftIndex);
+    }
+    
+    UE_LOG(LogInventoryStorage, Log, TEXT("GenerateSyncData: Generated %d sync entries"), 
+           SyncData.Num());
+    
+    return SyncData;
+}
+
+// ★★★ 클라이언트에서 호출: 동기화 데이터 적용 ★★★
+void UInventoryStorage::ApplySyncData(const TArray<FItemSyncData>& SyncData)
+{
+    if (!GridManager || !Outer)
+    {
+        UE_LOG(LogInventoryStorage, Error, TEXT("ApplySyncData: Dependencies not initialized!"));
+        return;
+    }
+    
+    UE_LOG(LogInventoryStorage, Log, TEXT("ApplySyncData: Applying %d sync entries"), 
+           SyncData.Num());
+    
+    // 기존 아이템 전부 클리어
+    ClearAll();
+    
+    // 동기화 데이터로부터 아이템 재생성 및 배치
+    for (const FItemSyncData& Data : SyncData)
+    {
+        if (!Data.IsValid())
+        {
+            UE_LOG(LogInventoryStorage, Warning, TEXT("ApplySyncData: Invalid sync data"));
+            continue;
+        }
+        
+        // UItemBase 생성
+        UItemBase* NewItem = CreateItemFromSyncData(Data);
+        if (!NewItem)
+        {
+            UE_LOG(LogInventoryStorage, Error, TEXT("ApplySyncData: Failed to create item"));
+            continue;
+        }
+        
+        // 그리드에 배치
+        PlaceItemInGrid(NewItem, Data.TopLeftIndex);
+        
+        UE_LOG(LogInventoryStorage, Verbose, TEXT("ApplySyncData: Placed %s at index %d"),
+               *NewItem->GetName(), Data.TopLeftIndex);
+    }
+    
+    // 캐시 갱신
+    RefreshUniqueItemsCache();
+    
+    UE_LOG(LogInventoryStorage, Log, TEXT("ApplySyncData: Complete. %d unique items placed"),
+           CachedUniqueItems.Num());
+}
+
+UItemBase* UInventoryStorage::CreateItemFromSyncData(const FItemSyncData& SyncData)
+{
+    if (!Outer || !SyncData.ItemDef)
+    {
+        return nullptr;
+    }
+    
+    UItemBase* NewItem = NewObject<UItemBase>(Outer, UItemBase::StaticClass());
+    if (!NewItem)
+    {
+        return nullptr;
+    }
+    
+    NewItem->Initialize(SyncData.ItemDef);
+    NewItem->bIsRotated = SyncData.bIsRotated;
+    NewItem->ItemGuid = SyncData.ItemGuid;
+    
+    return NewItem;
+}
+
+void UInventoryStorage::PlaceItemInGrid(UItemBase* Item, int32 TopLeftIndex)
+{
+    if (!Item || !GridManager)
+    {
+        return;
+    }
+    
+    const FIntPoint CurrentDims = Item->GetCurrentDimensions();
+    const FIntPoint TopLeft = GridManager->IndexToTile(TopLeftIndex);
+    
+    // 아이템이 차지하는 모든 타일에 배치
+    for (int32 y = 0; y < CurrentDims.Y; ++y)
+    {
+        for (int32 x = 0; x < CurrentDims.X; ++x)
+        {
+            const FIntPoint Tile(TopLeft.X + x, TopLeft.Y + y);
+            const int32 Index = GridManager->TileToIndex(Tile);
+            
+            if (GridManager->IsIndexValid(Index))
+            {
+                Items[Index] = Item;
+            }
+        }
+    }
 }
 
 FString UInventoryStorage::DumpStorageContents() const

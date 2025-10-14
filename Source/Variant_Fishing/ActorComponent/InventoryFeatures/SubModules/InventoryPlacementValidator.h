@@ -11,8 +11,6 @@ class UInventoryGridManager;
 class UInventoryStorage;
 class UItemBase;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogInventoryValidator, Log, All);
-
 /**
  * Validates item placement and checks for collisions
  */
