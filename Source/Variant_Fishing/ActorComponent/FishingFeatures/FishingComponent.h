@@ -5,7 +5,7 @@
 #include "SubModules/FishingStateModule.h"
 #include "FishingComponent.generated.h"
 
-// Forward declarations
+
 class AItemActor;
 class AFishingCharacter;
 class AFish;
@@ -15,7 +15,7 @@ class UNiagaraComponent;
 class UStaticMeshComponent;
 class USkeletalMeshComponent;
 
-// Module forward declarations
+
 class UFishingBobberModule;
 class UFishingAnimationModule;
 class UFishingBiteModule;
@@ -23,14 +23,13 @@ class UFishingCastModule;
 class UFishingInventoryModule;
 class UFishingStateModule;
 
+class UDatabaseManager;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogFishingComponent, Log, All);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnFishingStateChanged, EFishingState, OldState, EFishingState, NewState);
 
-/**
- * Main fishing component that coordinates all fishing mechanics through sub-modules
- * Maintains the same public interface while delegating implementation to specialized modules
- */
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class FISHING_API UFishingComponent : public UActorComponent
 {
@@ -44,14 +43,14 @@ public:
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// Initialization
+	
 	void Initialize(USkeletalMeshComponent* InCharacterMesh,
 	                UStaticMeshComponent* InFishingRod,
 	                UStaticMeshComponent* InBobber,
 	                UNiagaraComponent* InSplashEffect,
 	                AFishingCharacter* InOwnerCharacter);
 
-	// ========== PUBLIC INTERFACE (Unchanged) ==========
+	
 	
 	UFUNCTION(BlueprintCallable, Category="Fishing")
 	void OnPrimaryInput();
@@ -74,7 +73,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Fishing")
 	UStaticMeshComponent* GetBobber() const { return Bobber; }
 
-	// Animation notifies
+	
 	UFUNCTION(BlueprintCallable, Category="Fishing|AnimNotify")
 	void OnAnimNotify_CastEnd();
 
@@ -87,18 +86,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Fishing|AnimNotify")
 	void OnAnimNotify_ShowOffEnd();
 
-	// Fish bite callbacks
+	
 	UFUNCTION(BlueprintCallable, Category="Fishing")
 	void OnFishBite(AFish* Fish);
 
 	UFUNCTION(BlueprintCallable, Category="Fishing")
 	void OnFishFakeBite(AFish* Fish, float FakeBiteTime);
 
-	// Events
+	
 	UPROPERTY(BlueprintAssignable, Category="Fishing|Events")
 	FOnFishingStateChanged OnStateChanged;
 
-	// Replication callbacks
+	
 	UFUNCTION()
 	void OnRep_CurrentSocket();
 
@@ -114,7 +113,7 @@ public:
 	UFUNCTION()
 	void OnRep_BobberTarget();
 
-	// Multicast RPCs
+	
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_ShowFishItem();
 
@@ -122,20 +121,21 @@ public:
 	void Multicast_PlayFishingAnimation(FName SectionName, bool bPositionRotHand);
 
 protected:
-	// Server RPCs
+	
 	UFUNCTION(Server, Reliable)
 	void Server_RequestPrimary();
 
 	UFUNCTION(Server, Reliable)
 	void Server_SetState(EFishingState NewState);
 
-	// Internal helpers
+	
 	void ProcessFishingSuccess();
 
-protected:
 	
 	
-	// ========== SUB-MODULES ==========
+	
+	UPROPERTY()
+	UDatabaseManager* DatabaseManager = nullptr;
 	
 	UPROPERTY()
 	UFishingBobberModule* BobberModule;
@@ -155,7 +155,7 @@ protected:
 	UPROPERTY()
 	UFishingStateModule* StateModule;
 
-	// ========== COMPONENT REFERENCES ==========
+	
 	
 	UPROPERTY()
 	USkeletalMeshComponent* CharacterMesh = nullptr;
@@ -172,7 +172,7 @@ protected:
 	UPROPERTY()
 	AFishingCharacter* OwnerCharacter = nullptr;
 
-	// ========== REPLICATED PROPERTIES ==========
+	
 	
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentSocket)
 	FName CurrentFishingRodSocket = NAME_None;
@@ -195,7 +195,7 @@ protected:
 	UPROPERTY(Replicated)
 	AItemActor* CurrentDisplayFishItem = nullptr;
 
-	// ========== CONFIGURATION ==========
+	
 	
 	UPROPERTY(EditDefaultsOnly, Category="Fishing|Animation")
 	UAnimMontage* FishingMontage = nullptr;
@@ -260,7 +260,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Fish|Inventory")
 	TSubclassOf<AItemActor> ItemActorSubClass;
 
-	// Allow modules to access parent component data
+	
 	friend class UFishingBobberModule;
 	friend class UFishingAnimationModule;
 	friend class UFishingBiteModule;

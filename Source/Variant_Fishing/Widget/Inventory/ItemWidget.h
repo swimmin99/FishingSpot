@@ -19,10 +19,22 @@ class FISHING_API UItemWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	void SetItemWidget(UItemBase* ItemToAdd, UInventoryComponent* InOwnerInventoryComponent);
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void SetFilteredOutState(bool bFiltered);
 
+	UFUNCTION(BlueprintPure, Category = "Item")
+	bool CanInteract() const { return !bIsFilteredOut; }
+	
 	UFUNCTION(BlueprintCallable, Category = "Item Widget")
-	void UpdateVisual();
+	void UpdateVisual(float InTileSize);
+
+	void SetItemWidget(UItemBase* ItemToAdd, UInventoryComponent* InOwnerInventoryComponent, float InTileSize);
+
+	float TileSize = 48.0f;
+private:
+	UPROPERTY()
+	bool bIsFilteredOut = false;
+	
 
 	UPROPERTY()
 	UInventoryComponent* OwnerInventoryComponent = nullptr;
@@ -47,6 +59,7 @@ protected:
 
 	virtual void NativeConstruct() override;
 	virtual void NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+	FReply NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent);
 	virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual void NativeOnDragDetected(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent,

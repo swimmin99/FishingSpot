@@ -15,7 +15,7 @@ AFishSpawnPool::AFishSpawnPool()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Create SpawnBox component
+	
 	SpawnBox = CreateDefaultSubobject<UBoxComponent>(TEXT("SpawnBox"));
 	RootComponent = SpawnBox;
 }
@@ -30,7 +30,7 @@ void AFishSpawnPool::BeginPlay()
 		UE_LOG(LogFishSpawnPool, Log, TEXT("Added 'FishingWater' tag to FishSpawnPool"));
 	}
 
-	// FIXED: Changed from if(SpawnBox) to if(!SpawnBox)
+	
 	if(!SpawnBox)
 	{
 		UE_LOG(LogFishSpawnPool, Error, TEXT("SpawnBox is null! Cannot initialize FishSpawnPool"));

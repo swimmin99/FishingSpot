@@ -8,7 +8,8 @@ UENUM(BlueprintType)
 enum class EInteractionType : uint8
 {
 	Item UMETA(DisplayName = "Item"),
-	Shop UMETA(DisplayName = "Shop")
+	Shop UMETA(DisplayName = "Shop"),
+	Exchange UMETA(DisplayName = "Exchange")
 };
 
 UINTERFACE(MinimalAPI, Blueprintable)
@@ -23,7 +24,7 @@ class FISHING_API IInteractable
 
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
-	FString GetName() const;
+	FString GetInteractableName() const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
 	EInteractionType GetType() const;

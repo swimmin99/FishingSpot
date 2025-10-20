@@ -133,7 +133,7 @@ void UFishingCastModule::DrawCastingDebug(const FVector& StartLoc, const FVector
 	constexpr float Duration = 3.0f;
 	const FColor LineColor = bValid ? FColor::Green : FColor::Red;
 
-	// Line from character to start location
+	
 	if (OwnerCharacter)
 	{
 		DrawDebugLine(World, OwnerCharacter->GetActorLocation(), StartLoc, 
@@ -141,19 +141,19 @@ void UFishingCastModule::DrawCastingDebug(const FVector& StartLoc, const FVector
 		DrawDebugSphere(World, StartLoc, 10.0f, 8, FColor::Cyan, false, Duration, 0, 1.0f);
 	}
 
-	// Trace line
+	
 	DrawDebugLine(World, StartLoc, EndLoc, LineColor, false, Duration, 0, 3.0f);
 
-	// Hit location indicator
+	
 	if (!HitLoc.IsZero())
 	{
 		DrawDebugSphere(World, HitLoc, 15.0f, 12, LineColor, false, Duration, 0, 2.0f);
 		
-		// Height indicator line (vertical)
+		
 		const float Height = FVector::Dist(StartLoc, HitLoc);
 		DrawDebugLine(World, StartLoc, HitLoc, FColor::Yellow, false, Duration, 0, 2.0f);
 		
-		// Height text
+		
 		const FVector MidPoint = (StartLoc + HitLoc) * 0.5f;
 		DrawDebugString(World, MidPoint + FVector(30, 0, 0),
 			FString::Printf(TEXT("%.1f cm"), Height),
@@ -161,7 +161,7 @@ void UFishingCastModule::DrawCastingDebug(const FVector& StartLoc, const FVector
 
 		if (bValid)
 		{
-			// Success - emphasize target location
+			
 			DrawDebugSphere(World, HitLoc, 25.0f, 12, FColor::Green, false, Duration, 0, 1.0f);
 			DrawDebugString(World, HitLoc + FVector(0, 0, 50),
 				TEXT("✓ VALID TARGET"),
@@ -169,7 +169,7 @@ void UFishingCastModule::DrawCastingDebug(const FVector& StartLoc, const FVector
 		}
 	}
 
-	// Message display
+	
 	if (!Message.IsEmpty())
 	{
 		FVector MessageLoc = HitLoc.IsZero() ? EndLoc : HitLoc;

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "InteractableCharacter.h"
 #include "GameFramework/Character.h"
 #include "Variant_Fishing/Interface/Interactable.h"
+#include "Variant_Fishing/Interface/ItemDataProvider.h"
 #include "ShopCharacter.generated.h"
 
 class AFishingPlayerController;
@@ -10,7 +12,7 @@ class UInventoryComponent;
 class AFishingCharacter;
 
 UCLASS()
-class FISHING_API AShopCharacter : public ACharacter, public IInteractable
+class FISHING_API AShopCharacter : public AInteractableCharacter, public IInteractable
 {
 	GENERATED_BODY()
 
@@ -21,7 +23,7 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	virtual FString GetName_Implementation() const override;
+	virtual FString GetInteractableName_Implementation() const override;
 	virtual EInteractionType GetType_Implementation() const override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Shop")
@@ -31,19 +33,16 @@ public:
 	FString ShopName = TEXT("General Store");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
-	int32 ShopColumns = 8;
+	int32 ShopColumns = 24;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
-	int32 ShopRows = 6;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
-	float ShopTileSize = 32.f;
+	int32 ShopRows = 12;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
 	float InteractionRange = 300.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
-	TArray<TSubclassOf<class AItemActor>> InitialShopItems;
+	TArray<TObjectPtr<UPrimaryDataAsset>> InitialShopItems;
 
 	UFUNCTION(BlueprintCallable, Category = "Shop")
 	void InitializeShop();

@@ -85,7 +85,7 @@ void UFishingAnimationModule::UpdateFishingRodSocket(FName DesiredSocket)
 	{
 		CurrentFishingRodSocket = DesiredSocket;
 		
-		// Update parent component's replicated socket
+		
 		if (OwnerComponent && OwnerComponent->GetOwner() && OwnerComponent->GetOwner()->HasAuthority())
 		{
 			OwnerComponent->CurrentFishingRodSocket = DesiredSocket;

@@ -8,29 +8,30 @@ DEFINE_LOG_CATEGORY_STATIC(LogShop, Log, All);
 
 AShopCharacter::AShopCharacter()
 {
+	bReplicates = true;
+
+	
 	PrimaryActorTick.bCanEverTick = false;
 
 	ShopInventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("ShopInventoryComponent"));
-
+	
 	AutoPossessAI = EAutoPossessAI::Disabled;
 
-	bReplicates = true;
 }
 
 void AShopCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	ShopInventoryComponent->TurnReplicationOff();
 
-	if (HasAuthority())
-	{
-		InitializeShop();
-		UE_LOG(LogShop, Log, TEXT("ShopCharacter '%s' initialized on server"), *ShopName);
-	}
+	InitializeShop();
+	UE_LOG(LogShop, Log, TEXT("ShopCharacter '%s' initialized on server"), *ShopName);
+	bReplicates = false;
 
 	PlayIdleLoop();
 }
 
-FString AShopCharacter::GetName_Implementation() const
+FString AShopCharacter::GetInteractableName_Implementation() const
 {
 	return ShopName;
 }
@@ -47,10 +48,6 @@ void AShopCharacter::InitializeShop()
 		UE_LOG(LogShop, Error, TEXT("InitializeShop: ShopInventoryComponent is null!"));
 		return;
 	}
-
-	ShopInventoryComponent->Columns = ShopColumns;
-	ShopInventoryComponent->Rows = ShopRows;
-	ShopInventoryComponent->TileSize = ShopTileSize;
 	ShopInventoryComponent->Initalize(this);
 
 	ShopInventoryComponent->ResizeItemsToGrid(true);
@@ -63,10 +60,6 @@ void AShopCharacter::InitializeShop()
 
 void AShopCharacter::SpawnInitialItems()
 {
-	if (!HasAuthority())
-	{
-		return;
-	}
 	if (!ShopInventoryComponent)
 	{
 		return;
@@ -82,49 +75,42 @@ void AShopCharacter::SpawnInitialItems()
 	UE_LOG(LogShop, Log, TEXT("SpawnInitialItems: Spawning %d items for '%s'"),
 	       InitialShopItems.Num(), *ShopName);
 
-	for (TSubclassOf<AItemActor> ItemClass : InitialShopItems)
+	for (TObjectPtr<UPrimaryDataAsset> ItemObject : InitialShopItems)
 	{
-		if (!ItemClass)
+		if (!ItemObject)
 		{
-			UE_LOG(LogShop, Warning, TEXT("SpawnInitialItems: Null ItemClass in InitialShopItems"));
+			UE_LOG(LogShop, Warning, TEXT("SpawnInitialItems: Null ItemObject in InitialShopItems"));
 			continue;
 		}
 
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-		AItemActor* TempItem = GetWorld()->SpawnActor<AItemActor>(
-			ItemClass,
-			FVector::ZeroVector,
-			FRotator::ZeroRotator,
-			SpawnParams
-		);
-
-		if (!TempItem)
+		
+		if (ItemObject->GetClass()->ImplementsInterface(UItemDataProvider::StaticClass()))
 		{
-			UE_LOG(LogShop, Warning, TEXT("SpawnInitialItems: Failed to spawn ItemActor"));
-			continue;
-		}
-
-		UItemBase* NewItem = TempItem->MakeItemInstance(ShopInventoryComponent, this);
-
-		if (NewItem)
-		{
-			bool bAdded = ShopInventoryComponent->TryAddItem(NewItem);
-
-			if (bAdded)
+			UItemBase * Item = IItemDataProvider::Execute_CreateBaseItem(ItemObject, this, ShopName);
+			if (Item)
 			{
-				UE_LOG(LogShop, Log, TEXT("SpawnInitialItems: Added %s to shop"),
-				       *NewItem->GetName());
-			}
-			else
-			{
-				UE_LOG(LogShop, Warning, TEXT("SpawnInitialItems: No room for %s"),
-				       *NewItem->GetName());
+				bool bAdded = ShopInventoryComponent->TryAddItem(Item);
+
+				if (bAdded)
+				{
+					UE_LOG(LogShop, Log, TEXT("SpawnInitialItems: Added %s to shop"),
+						   *Item->GetName());
+				}
+				else
+				{
+					UE_LOG(LogShop, Warning, TEXT("SpawnInitialItems: No room for %s"),
+						   *Item->GetName());
+				}
 			}
 		}
-
-		TempItem->Destroy();
+		else
+		{
+			UE_LOG(LogShop, Warning, TEXT("Item %s does not implement IItemDataProvider"), *ItemObject->GetName());
+		}
+		
+		
 	}
 
 	ShopInventoryComponent->RefreshAllItems();

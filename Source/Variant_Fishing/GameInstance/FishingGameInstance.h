@@ -12,6 +12,22 @@ class FISHING_API UFishingGameInstance : public UGameInstance
 public:
 	virtual void Init() override;
 
+	UPROPERTY()
+	FString PendingPlayerName;
+    
+	void SetPendingPlayerName(const FString& InName)
+	{
+		PendingPlayerName = InName;
+		UE_LOG(LogTemp, Log, TEXT("✅ GameInstance: PendingPlayerName set to '%s'"), *PendingPlayerName);
+	}
+    
+	FString GetAndClearPendingPlayerName()
+	{
+		FString Result = PendingPlayerName;
+		PendingPlayerName.Empty();
+		return Result;
+	}
+	
 protected:
 	UFUNCTION()
 	void OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType,

@@ -5,8 +5,14 @@
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
+#include "Variant_Fishing/Widget/BaseButtonWidget.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogShopWidget, Log, All);
+
+UInventoryComponent* UShopInventoryWidget::GetConnectedInventory()
+{
+	return ConnectedInventoryComponent;
+}
 
 void UShopInventoryWidget::NativeConstruct()
 {
@@ -14,7 +20,9 @@ void UShopInventoryWidget::NativeConstruct()
 
 	if (ConfirmButton)
 	{
-		ConfirmButton->OnClicked.AddDynamic(this, &UShopInventoryWidget::OnConfirmButtonClicked);
+		ConfirmButton->SetText(FText::FromString("Confirm"));
+		ConfirmButton->GetBaseButton()->OnClicked.RemoveDynamic(this, &UShopInventoryWidget::OnConfirmButtonClicked);
+		ConfirmButton->GetBaseButton()->OnClicked.AddDynamic(this, &UShopInventoryWidget::OnConfirmButtonClicked);
 		UE_LOG(LogShopWidget, Log, TEXT("NativeConstruct: Confirm Button bound"));
 	}
 
@@ -50,8 +58,10 @@ void UShopInventoryWidget::SetTransactionManager(UShopTransactionManager* InMana
 
 void UShopInventoryWidget::UpdatePriceDisplay()
 {
+
 	if (!PriceText || !TransactionManager)
 	{
+		UE_LOG(LogShopWidget, Log, TEXT("SetTransactionManager: UpdatePriceDisplay Manager=%s"),TransactionManager ? TEXT("Valid") : TEXT("NULL"));
 		return;
 	}
 
@@ -60,6 +70,7 @@ void UShopInventoryWidget::UpdatePriceDisplay()
 
 	if (bIsPlayerInventory)
 	{
+
 		Price = TransactionManager->GetTotalBuyPrice();
 		Label = FString::Printf(TEXT("Buy: %d G"), Price);
 	}
@@ -121,4 +132,5 @@ void UShopInventoryWidget::OnConfirmButtonClicked()
 
 	UpdatePriceDisplay();
 	UpdateConfirmButtonState();
+	
 }

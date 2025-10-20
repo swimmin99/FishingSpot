@@ -21,13 +21,13 @@ void UFishingStateModule::SetState(EFishingState NewState)
 	const EFishingState OldState = FishState;
 	FishState = NewState;
 	
-	// Update parent component's replicated state
+	
 	if (OwnerComponent)
 	{
 		OwnerComponent->FishState = NewState;
 	}
 	
-	// Handle state entry logic
+	
 	OnStateEntered(NewState);
 	
 	UE_LOG(LogFishingComponent, Log, TEXT("State changed: %s -> %s"), 
@@ -68,7 +68,7 @@ void UFishingStateModule::EnterFishing()
 
 	UE_LOG(LogFishingComponent, Log, TEXT("EnterFishing: Started!"));
 
-	// Validate casting location
+	
 	FVector TargetLocation = FVector::ZeroVector;
 	if (OwnerComponent->CastModule && !OwnerComponent->CastModule->CheckCastingCollision(TargetLocation))
 	{
@@ -84,7 +84,7 @@ void UFishingStateModule::EnterFishing()
 
 	bIsFishing = true;
 	
-	// Update parent component's replicated state
+	
 	if (OwnerComponent)
 	{
 		OwnerComponent->bIsFishing = true;
@@ -96,7 +96,7 @@ void UFishingStateModule::EnterFishing()
 		}
 	}
 
-	// Show bobber at target location
+	
 	if (OwnerComponent->BobberModule)
 	{
 		OwnerComponent->BobberModule->Show(TargetLocation);
@@ -124,13 +124,13 @@ void UFishingStateModule::ExitFishing()
 
 	UE_LOG(LogFishingComponent, Log, TEXT("ExitFishing: Cleaning up fishing session"));
 
-	// Clear all timers
+	
 	if (OwnerComponent->BiteModule)
 	{
 		OwnerComponent->BiteModule->ClearTimers();
 		OwnerComponent->BiteModule->SetInBiteWindow(false);
 		
-		// Clear current biting fish
+		
 		AFish* CurrentFish = OwnerComponent->BiteModule->GetCurrentBitingFish();
 		if (CurrentFish)
 		{
@@ -140,7 +140,7 @@ void UFishingStateModule::ExitFishing()
 
 	bIsFishing = false;
 	
-	// Update parent component's replicated state
+	
 	if (OwnerComponent)
 	{
 		OwnerComponent->bIsFishing = false;
@@ -149,10 +149,10 @@ void UFishingStateModule::ExitFishing()
 
 	OwnerComponent->Server_SetState(EFishingState::None);
 
-	// Unlock player movement
+	
 	LockMovement(false);
 	
-	// Hide bobber
+	
 	if (OwnerComponent->BobberModule)
 	{
 		OwnerComponent->BobberModule->Hide();
@@ -193,24 +193,24 @@ void UFishingStateModule::LockMovement(bool bLock)
 
 void UFishingStateModule::OnStateEntered(EFishingState NewState)
 {
-	// State-specific entry logic can be handled here
-	// Most animation and visual logic is handled in FishingComponent::Server_SetState
-	// This is more for state-specific setup that doesn't involve animations
+	
+	
+	
 	
 	switch (NewState)
 	{
 	case EFishingState::None:
-		// Ensure movement is unlocked
+		
 		LockMovement(false);
 		break;
 		
 	case EFishingState::Casting:
-		// Movement should be locked during casting
+		
 		LockMovement(true);
 		break;
 		
 	case EFishingState::Exit:
-		//TODO Implement FallBack call for 		ExitFishing();
+		
 
 		break;
 		

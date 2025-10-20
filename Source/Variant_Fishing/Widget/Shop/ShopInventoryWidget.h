@@ -4,9 +4,9 @@
 #include "Variant_Fishing/Widget/Inventory/InventoryWidget.h"
 #include "ShopInventoryWidget.generated.h"
 
-class UButton;
 class UTextBlock;
 class UShopTransactionManager;
+class UBaseButtonWidget;
 
 UCLASS()
 class FISHING_API UShopInventoryWidget : public UInventoryWidget
@@ -25,16 +25,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
 	bool bIsPlayerInventory = false;
 
+	UFUNCTION(BlueprintCallable, Category = "Shop")
+	UInventoryComponent* GetConnectedInventory();
+
+	
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget), Category="UI")
-	UButton* ConfirmButton;
+	UBaseButtonWidget* ConfirmButton;
 
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget), Category="UI")
 	UTextBlock* PriceText;
 
+	
 private:
 	UPROPERTY()
 	UShopTransactionManager* TransactionManager = nullptr;

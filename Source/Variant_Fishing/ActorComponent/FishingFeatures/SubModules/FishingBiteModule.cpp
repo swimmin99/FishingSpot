@@ -55,16 +55,16 @@ void UFishingBiteModule::OnFishBite(AFish* Fish)
 	CurrentBitingFish = Fish;
 	bInBiteWindow = true;
 	
-	// Update parent component's replicated state
+	
 	OwnerComponent->bInBiteWindow = true;
 	
-	// Trigger bobber real bite animation
+	
 	if (OwnerComponent->BobberModule)
 	{
 		OwnerComponent->BobberModule->PlayRealBite();
 	}
 	
-	// Change state to BiteWindow
+	
 	OwnerComponent->Server_SetState(EFishingState::BiteWindow);
 
 	if (UFishData* FishData = Fish->GetFishData())
@@ -104,7 +104,7 @@ void UFishingBiteModule::OnFishFakeBite(AFish* Fish, float FakeBiteTime)
 		return;
 	}
 
-	// Play fake bite animation on bobber
+	
 	if (OwnerComponent->BobberModule)
 	{
 		OwnerComponent->BobberModule->PlayFakeBite();
@@ -176,47 +176,47 @@ void UFishingBiteModule::UpdateBiteFight(float DeltaSeconds)
 		return;
 	}
 
-	// Update orbit angle
+	
 	BobberOrbitAngle += BobberOrbitAngularSpeed * DeltaSeconds;
 
-	// Update bobber position in orbit
+	
 	if (OwnerComponent->BobberModule)
 	{
 		OwnerComponent->BobberModule->UpdateOrbitMovement(DeltaSeconds, BobberOrbitAngle);
 	}
 
-	// Get fish length
+	
 	const float FishLength = CurrentBitingFish->GetFishLength();
 	
-	// Calculate angle delta based on fish length (arc length = radius × angle)
+	
 	const float AngleDelta = FishLength / BobberOrbitRadius;
 	
-	// Head position (current angle)
+	
 	const float HeadAngle = BobberOrbitAngle;
 	const float HeadX = FMath::Cos(HeadAngle) * BobberOrbitRadius;
 	const float HeadY = FMath::Sin(HeadAngle) * BobberOrbitRadius;
 	FVector HeadTargetPos = BobberOrbitCenter;
 	HeadTargetPos.X += HeadX;
 	HeadTargetPos.Y += HeadY;
-	HeadTargetPos.Z += -15.f * 0.5f; // RealBiteSinkAmount
+	HeadTargetPos.Z += -15.f * 0.5f; 
 	
-	// Tail position (angle minus delta - following behind)
+	
 	const float TailAngle = BobberOrbitAngle - AngleDelta;
 	const float TailX = FMath::Cos(TailAngle) * BobberOrbitRadius;
 	const float TailY = FMath::Sin(TailAngle) * BobberOrbitRadius;
 	FVector TailTargetPos = BobberOrbitCenter;
 	TailTargetPos.X += TailX;
 	TailTargetPos.Y += TailY;
-	TailTargetPos.Z += -15.f * 0.5f; // RealBiteSinkAmount
+	TailTargetPos.Z += -15.f * 0.5f; 
 	
-	// Move fish to head position smoothly
+	
 	const FVector CurrentLoc = CurrentBitingFish->GetActorLocation();
 	const FVector NewLoc = FMath::VInterpTo(CurrentLoc, HeadTargetPos, DeltaSeconds, 8.0f);
 	CurrentBitingFish->SetActorLocation(NewLoc, false);
 	
-	// Rotate fish to swim direction (from tail to head)
+	
 	FVector SwimDirection = HeadTargetPos - TailTargetPos;
-	SwimDirection.Z = 0.f; // Horizontal direction only
+	SwimDirection.Z = 0.f; 
 	
 	if (SwimDirection.SizeSquared() > 0.01f)
 	{
@@ -231,19 +231,19 @@ void UFishingBiteModule::UpdateBiteFight(float DeltaSeconds)
 		CurrentBitingFish->SetActorRotation(NewRot);
 	}
 	
-	// Debug visualization
+	
 	if (OwnerComponent->bShowDebugCasting)
 	{
-		// Target head/tail positions
+		
 		DrawDebugSphere(World, HeadTargetPos, 10.f, 12, FColor::Orange, false, -1.f, 0, 2.f);
 		DrawDebugSphere(World, TailTargetPos, 10.f, 12, FColor::Magenta, false, -1.f, 0, 2.f);
 		DrawDebugLine(World, TailTargetPos, HeadTargetPos, FColor::Yellow, false, -1.f, 0, 3.f);
 		
-		// Orbit circle
+		
 		DrawDebugCircle(World, BobberOrbitCenter, BobberOrbitRadius, 32, FColor::Green, false, -1.f, 0, 1.f,
 		                FVector(0, 1, 0), FVector(1, 0, 0), false);
 		
-		// Fish direction arrow
+		
 		DrawDebugDirectionalArrow(World, CurrentBitingFish->GetActorLocation(),
 		                          CurrentBitingFish->GetActorLocation() + CurrentBitingFish->GetActorForwardVector() * 50.f,
 		                          20.f, FColor::White, false, -1.f, 0, 3.f);
@@ -252,19 +252,27 @@ void UFishingBiteModule::UpdateBiteFight(float DeltaSeconds)
 
 void UFishingBiteModule::FinishBiteFight()
 {
-	if (!OwnerComponent || !OwnerComponent->GetOwner() || !OwnerComponent->GetWorld())
-	{
-		return;
-	}
+    
+    if (!OwnerComponent || !OwnerComponent->GetOwner() || !OwnerComponent->GetOwner()->HasAuthority())
+    {
+        UE_LOG(LogFishingComponent, Warning, TEXT("FinishBiteFight: Must be called on server!"));
+        return;
+    }
+    
+    UWorld* World = OwnerComponent->GetWorld();
+    if (!World)
+    {
+        UE_LOG(LogFishingComponent, Error, TEXT("FinishBiteFight: GetWorld() returned null!"));
+        return;
+    }
 	
-	bBiteFighting = false;
+    bBiteFighting = false;
 
-	if (OwnerComponent)
-	{
-		OwnerComponent->ProcessFishingSuccess();
-		// This will be handled by FishingComponent::ProcessFishingSuccess
-		// which creates the fish item and transitions to PullOut state
-	}
+    
+    if (OwnerComponent)
+    {
+        OwnerComponent->ProcessFishingSuccess();
+    }
 }
 
 void UFishingBiteModule::StartBiteWindowTimer()

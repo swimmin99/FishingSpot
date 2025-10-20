@@ -66,7 +66,7 @@ void UFishingBobberModule::Show(const FVector& TargetLocation)
 	BobberAnimTimer = 0.f;
 	bBobberAnimating = false;
 	
-	// Update parent component's replicated state
+	
 	if (OwnerComponent)
 	{
 		OwnerComponent->bBobberActive = true;
@@ -99,7 +99,7 @@ void UFishingBobberModule::Hide()
 	BobberAnimTimer = 0.f;
 	bBobberAnimating = false;
 	
-	// Update parent component's replicated state
+	
 	if (OwnerComponent)
 	{
 		OwnerComponent->bBobberActive = false;
@@ -134,8 +134,8 @@ void UFishingBobberModule::PlayRealBite()
 
 void UFishingBobberModule::StartOrbitMovement(const FVector& Center)
 {
-	// This would be called when bite fight starts
-	// The actual orbit update happens in UpdateOrbitMovement
+	
+	
 }
 
 void UFishingBobberModule::UpdateMovement(float DeltaSeconds, EFishingState CurrentState)
@@ -147,10 +147,10 @@ void UFishingBobberModule::UpdateMovement(float DeltaSeconds, EFishingState Curr
 
 	BobberAnimTimer += DeltaSeconds;
 
-	// During bite fight, use orbit movement handled separately
+	
 	if (CurrentState == EFishingState::BiteFight)
 	{
-		return; // Orbit movement is handled in UpdateOrbitMovement
+		return; 
 	}
 
 	FVector NewLoc = BobberTargetLocation;
@@ -190,12 +190,12 @@ void UFishingBobberModule::UpdateMovement(float DeltaSeconds, EFishingState Curr
 				bBobberAnimating = false;
 				ZOffset = -RealBiteSinkAmount;
 
-				// Notify that animation is complete
+				
 				if (bWaitingForRealBiteAnimComplete && OwnerComponent)
 				{
 					bWaitingForRealBiteAnimComplete = false;
 					
-					// Trigger bite window timer start through BiteModule
+					
 					if (OwnerComponent->BiteModule)
 					{
 						OwnerComponent->BiteModule->StartBiteWindowTimer();
@@ -207,7 +207,7 @@ void UFishingBobberModule::UpdateMovement(float DeltaSeconds, EFishingState Curr
 			}
 			else
 			{
-				// Ease out cubic for smooth deceleration
+				
 				const float EasedProgress = 1.0f - FMath::Pow(1.0f - Progress, 3.0f);
 				ZOffset = -RealBiteSinkAmount * EasedProgress;
 			}
@@ -234,8 +234,8 @@ void UFishingBobberModule::UpdateOrbitMovement(float DeltaSeconds, float OrbitAn
 		return;
 	}
 	
-	// This is called during bite fight from BiteModule
-	// BiteModule calculates the angle, we just position the bobber
+	
+	
 	
 	constexpr float BobberOrbitRadius = 64.0f;
 	
@@ -244,7 +244,7 @@ void UFishingBobberModule::UpdateOrbitMovement(float DeltaSeconds, float OrbitAn
 		return;
 	}
 	
-	// Get orbit center from BiteModule (where bobber was when fight started)
+	
 	const FVector& OrbitCenter = OwnerComponent->BobberTargetLocation;
 	
 	const float X = FMath::Cos(OrbitAngle) * BobberOrbitRadius;

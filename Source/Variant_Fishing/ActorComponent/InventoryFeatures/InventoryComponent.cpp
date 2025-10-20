@@ -1,7 +1,6 @@
 
-// ============================================
-// InventoryComponent.cpp (REFACTORED)
-// ============================================
+
+
 #include "InventoryComponent.h"
 
 #include "Fishing.h"
@@ -10,13 +9,15 @@
 #include "SubModules/InventoryPlacementValidator.h"
 #include "SubModules/InventoryItemHandler.h"
 #include "SubModules/InventoryUIManager.h"
-#include "SubModules/InventoryNetworkSync.h"
 #include "FishingCharacter.h"
+#include "FishingPlayerController.h"
 #include "Engine/Engine.h"
 #include "GameFramework/Actor.h"
 #include "Net/UnrealNetwork.h"
 #include "Variant_Fishing/Actor/ItemActor.h"
 #include "Variant_Fishing/Data/ItemBase.h"
+#include "../../Interface/ItemDataProvider.h"
+#include "Variant_Fishing/Database/DatabaseManager.h"
 
 UInventoryComponent::UInventoryComponent()
 {
@@ -25,12 +26,18 @@ UInventoryComponent::UInventoryComponent()
     SetIsReplicatedByDefault(true);
 }
 
+void UInventoryComponent::TurnReplicationOff()
+{
+    IsReplicationOff = true;
+    SetIsReplicated(false);
+}
+
 
 void UInventoryComponent::BeginPlay()
 {
     Super::BeginPlay();
     
-    // 모듈 초기화
+    
     InitializeModules();
     
     Activate(true);
@@ -62,11 +69,10 @@ void UInventoryComponent::InitializeModules()
     Validator = NewObject<UInventoryPlacementValidator>(this, TEXT("Validator"));
     ItemHandler = NewObject<UInventoryItemHandler>(this, TEXT("ItemHandler"));
     UIManager = NewObject<UInventoryUIManager>(this, TEXT("UIManager"));
-    NetworkSync = NewObject<UInventoryNetworkSync>(this, TEXT("NetworkSync"));
     
     if (GridManager)
     {
-        GridManager->Initialize(Columns, Rows, TileSize);
+        GridManager->Initialize(Columns, Rows);
     }
     
     if (Storage && GridManager)
@@ -84,21 +90,12 @@ void UInventoryComponent::InitializeModules()
         ItemHandler->Initialize(GridManager, Storage, Validator);
     }
     
-    if (NetworkSync && Storage && GridManager)
-    {
-        NetworkSync->Initialize(this, Storage, GridManager);
-    }
-    
     UE_LOG(LogInventory, Log, TEXT("InitializeModules: All modules initialized"));
 }
 
 void UInventoryComponent::Initalize(AActor* Owner)
 {
     CharacterReference = Cast<AFishingCharacter>(Owner);
-    
-    UE_LOG(LogInventory, Log, TEXT("Initalize: Owner=%s, CharacterReference=%s"),
-           Owner ? *Owner->GetName() : TEXT("None"),
-           CharacterReference ? *CharacterReference->GetName() : TEXT("None"));
 }
 
 void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -107,13 +104,73 @@ void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
     
     DOREPLIFETIME(UInventoryComponent, Columns);
     DOREPLIFETIME(UInventoryComponent, Rows);
-    DOREPLIFETIME(UInventoryComponent, TileSize);
     
-    // ★★★ 동기화 데이터 레플리케이션 ★★★
+    
     DOREPLIFETIME(UInventoryComponent, ItemSyncData);
 }
 
-// ★★★ 클라이언트에서 자동 호출되는 레플리케이션 콜백 ★★★
+
+
+bool UInventoryComponent::IsItemCategoryAllowed(UItemBase* Item) const
+{
+
+    if (!Item)
+    {
+        return false;
+    }
+    EItemCategory ItemCategory = IItemDataProvider::Execute_GetCategory(Item->ItemDataProvider.GetObject());
+    
+
+    
+    if (bAllowAllCategories || AllowedCategories.Num() == 0)
+    {
+        return true;
+    }
+
+    
+    return AllowedCategories.Contains(ItemCategory);
+}
+
+bool UInventoryComponent::IsCategoryAllowed(EItemCategory Category) const
+{
+    if (bAllowAllCategories || AllowedCategories.Num() == 0)
+    {
+        return true;
+    }
+
+    return AllowedCategories.Contains(Category);
+}
+
+TArray<EItemCategory> UInventoryComponent::GetAllowedCategoriesArray() const
+{
+    TArray<EItemCategory> Result;
+
+    
+    if (bAllowAllCategories || AllowedCategories.Num() == 0)
+    {
+        Result.Add(EItemCategory::All);
+        Result.Add(EItemCategory::Fish);
+        Result.Add(EItemCategory::Equipment);
+        Result.Add(EItemCategory::Consumable);
+        
+        
+        Result.Add(EItemCategory::Misc);
+    }
+    else
+    {
+        
+        Result.Add(EItemCategory::All);
+		
+        
+        Result.Append(AllowedCategories.Array());
+    }
+
+    return Result;
+}
+
+
+
+
 void UInventoryComponent::OnRep_ItemSyncData()
 {
     UE_LOG(LogInventory, Log, TEXT("OnRep_ItemSyncData: Received %d items (Role=%d)"),
@@ -125,19 +182,21 @@ void UInventoryComponent::OnRep_ItemSyncData()
         return;
     }
     
-    // Storage에 동기화 데이터 적용
+    
     Storage->ApplySyncData(ItemSyncData);
     
-    // UI 갱신
+    
     RefreshAllItems();
     RefreshGridLayout();
     
     UE_LOG(LogInventory, Log, TEXT("OnRep_ItemSyncData: Sync complete"));
 }
 
-// ★★★ 서버에서 호출: 클라이언트에 동기화 ★★★
+
 void UInventoryComponent::SyncToClients()
 {
+    if (IsReplicationOff)
+        return;
     if (GetOwnerRole() != ROLE_Authority)
     {
         UE_LOG(LogInventory, Warning, TEXT("SyncToClients: Called on non-authority!"));
@@ -150,23 +209,18 @@ void UInventoryComponent::SyncToClients()
         return;
     }
     
-    // Storage로부터 동기화 데이터 생성
     ItemSyncData = Storage->GenerateSyncData();
-    
     UE_LOG(LogInventory, Log, TEXT("SyncToClients: Updated ItemSyncData with %d entries"), 
            ItemSyncData.Num());
     
-    // ItemSyncData가 Replicated이므로 자동으로 모든 클라이언트에 전송됨!
-    // 클라이언트에서 OnRep_ItemSyncData()가 자동 호출됨!
+    RefreshAllItems();
+    RefreshGridLayout();
 }
 
 
 
 
 
-// ============================================
-// Widget Management (Delegates to UIManager)
-// ============================================
 
 void UInventoryComponent::RegisterInventoryWidget(UInventoryWidget* InInventoryWidget)
 {
@@ -179,26 +233,6 @@ void UInventoryComponent::RegisterInventoryWidget(UInventoryWidget* InInventoryW
     UIManager->RegisterWidget(InInventoryWidget);
 }
 
-void UInventoryComponent::UpdateDescription(UItemBase* Item)
-{
-    if (!UIManager)
-    {
-        UE_LOG(LogInventory, Warning, TEXT("UpdateDescription: UIManager is null!"));
-        return;
-    }
-    
-    UIManager->UpdateDescription(Item);
-}
-
-void UInventoryComponent::ClearDescription()
-{
-    if (!UIManager)
-    {
-        return;
-    }
-    
-    UIManager->ClearDescription();
-}
 
 void UInventoryComponent::SetFocusGridWidget()
 {
@@ -231,9 +265,9 @@ void UInventoryComponent::RefreshGridLayout()
     UIManager->RefreshGrid();
 }
 
-// ============================================
-// Grid Operations (Delegates to GridManager)
-// ============================================
+
+
+
 
 FIntPoint UInventoryComponent::IndexToTile(int32 Index) const
 {
@@ -277,9 +311,9 @@ FString UInventoryComponent::DumpGrid() const
     return Storage->DumpStorageContents();
 }
 
-// ============================================
-// Storage Access (Delegates to Storage)
-// ============================================
+
+
+
 
 UItemBase* UInventoryComponent::GetItemAtIndex(int32 Index)
 {
@@ -314,9 +348,9 @@ void UInventoryComponent::RefreshAllItems()
     Storage->RefreshUniqueItemsCache();
 }
 
-// ============================================
-// Validation (Delegates to Validator)
-// ============================================
+
+
+
 
 bool UInventoryComponent::IsRoomAvailableAt(UItemBase* ItemToPlace, FIntPoint TopLeftTile, 
                                             UItemBase* IgnoreItem)
@@ -326,7 +360,14 @@ bool UInventoryComponent::IsRoomAvailableAt(UItemBase* ItemToPlace, FIntPoint To
         UE_LOG(LogInventory, Error, TEXT("IsRoomAvailableAt: Validator is null!"));
         return false;
     }
+
     
+    if (!IsItemCategoryAllowed(ItemToPlace))
+    {
+        UE_LOG(LogInventory, Warning, TEXT("IsRoomAvailableAt: Item category not allowed in this inventory"));
+        return false;
+    }
+
     return Validator->CanPlaceItemAt(ItemToPlace, TopLeftTile, IgnoreItem);
 }
 
@@ -337,13 +378,19 @@ bool UInventoryComponent::IsRoomAvailable(UItemBase* ItemToAdd, int32 TopLeftInd
         UE_LOG(LogInventory, Error, TEXT("IsRoomAvailable: Validator is null!"));
         return false;
     }
+
+    if (!IsItemCategoryAllowed(ItemToAdd))
+    {
+        return false;
+    }
+
     
     return Validator->CanPlaceItemAt(ItemToAdd, TopLeftIndex, nullptr);
 }
 
-// ============================================
-// Item Operations (Delegates to ItemHandler)
-// ============================================
+
+
+
 
 bool UInventoryComponent::TryAddItem(UItemBase* ItemToAdd)
 {
@@ -357,16 +404,24 @@ bool UInventoryComponent::TryAddItem(UItemBase* ItemToAdd)
     
     if (bSuccess)
     {
-        // ★★★ 서버에서만 동기화 ★★★
+        
         if (GetOwnerRole() == ROLE_Authority)
         {
             SyncToClients();
         }
         
         NotifyItemsChanged();
-        
-        UE_LOG(LogInventory, Log, TEXT("TryAddItem: Success (Role=%d)"), 
-               static_cast<int32>(GetOwnerRole()));
+
+        if (CharacterReference)
+        {
+            AFishingPlayerController* PC = CharacterReference->GetController<AFishingPlayerController>();
+            if (PC)
+            {
+                PC->ShowItemAcquiredBanner(ItemToAdd);
+                UE_LOG(LogInventory, Log, TEXT("TryAddItem: Success (Role=%d)"), 
+                       static_cast<int32>(GetOwnerRole()));
+            }
+        }
     }
     
     return bSuccess;
@@ -402,7 +457,7 @@ bool UInventoryComponent::RemoveItem(UItemBase* ItemToRemove)
     
     if (bSuccess)
     {
-        // ★★★ 서버에서만 동기화 ★★★
+        
         if (GetOwnerRole() == ROLE_Authority)
         {
             SyncToClients();
@@ -427,7 +482,7 @@ void UInventoryComponent::AddItemAt(UItemBase* ItemToAdd, int32 TopLeftIndex)
     
     if (ItemHandler->AddItemAt(ItemToAdd, TopLeftIndex))
     {
-        // ★★★ 서버에서만 동기화 ★★★
+        
         if (GetOwnerRole() == ROLE_Authority)
         {
             SyncToClients();
@@ -442,9 +497,9 @@ void UInventoryComponent::NotifyItemsChanged()
     RefreshGridLayout();
 }
 
-// ============================================
-// Network RPCs - Server
-// ============================================
+
+
+
 
 void UInventoryComponent::Server_MoveItem_Implementation(UItemBase* Item, FIntPoint NewTopLeftTile)
 {
@@ -459,34 +514,71 @@ void UInventoryComponent::Server_MoveItem_Implementation(UItemBase* Item, FIntPo
     if (!Validator->CanPlaceItemAt(Item, NewTopLeftTile, Item))
     {
         UE_LOG(LogInventory, Warning, TEXT("Server_MoveItem: Cannot place"));
-        
-        // 실패 시 클라이언트에게 알림 (레플리케이션이 원래 상태 복원)
-        int32 OriginalIndex = -1;
-        if (NetworkSync && NetworkSync->FindItemIndex(Item, OriginalIndex))
-        {
-            Client_RejectItemPlacement(Item->ItemGuid, OriginalIndex);
-        }
         return;
     }
     
     if (ItemHandler->MoveItem(Item, NewTopLeftTile))
     {
-        // ★★★ 동기화 ★★★
+        
         SyncToClients();
         
         UE_LOG(LogInventory, Log, TEXT("Server_MoveItem: Success, synced to clients"));
     }
 }
 
+
+bool UInventoryComponent::FindItemTopLeftIndex(UItemBase* Item, int32& OutIndex) const
+{
+    if (!Item || !Storage || !GridManager)
+    {
+        return false;
+    }
+    
+    
+    const TMap<UItemBase*, FIntPoint>& UniqueItems = Storage->GetCachedUniqueItems();
+    
+    if (const FIntPoint* TopLeftTile = UniqueItems.Find(Item))
+    {
+        OutIndex = GridManager->TileToIndex(*TopLeftTile);
+        return true;
+    }
+    
+    return false;
+}
+
+
+bool UInventoryComponent::FindItemIndex(UItemBase* Item, int32& OutIndex) const
+{
+    if (!Item || !Storage || !GridManager)
+    {
+        return false;
+    }
+    
+    const TArray<UItemBase*>& Items = Storage->GetItemsArray();
+    const int32 TotalTiles = GridManager->GetTotalTiles();
+    
+    for (int32 i = 0; i < TotalTiles; i++)
+    {
+        if (Items.IsValidIndex(i) && Items[i] == Item)
+        {
+            OutIndex = i;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+
 void UInventoryComponent::Server_DropItemToWorld_Implementation(UItemBase* ItemToDrop)
 {
-    if (!ItemToDrop || !CharacterReference || !ItemHandler || !NetworkSync)
+    if (!ItemToDrop || !CharacterReference || !ItemHandler)
     {
         return;
     }
     
     int32 ItemIndex = -1;
-    if (!NetworkSync->FindItemIndex(ItemToDrop, ItemIndex))
+    if (!FindItemIndex(ItemToDrop, ItemIndex))
     {
         UE_LOG(LogInventory, Warning, TEXT("Server_DropItemToWorld: Item not found"));
         return;
@@ -518,7 +610,7 @@ void UInventoryComponent::Server_DropItemToWorld_Implementation(UItemBase* ItemT
     
     if (ItemHandler->RemoveItem(ItemToDrop))
     {
-        // ★★★ 동기화 ★★★
+        
         SyncToClients();
         
         UE_LOG(LogInventory, Log, TEXT("Server_DropItemToWorld: Complete, synced"));
@@ -539,7 +631,7 @@ void UInventoryComponent::RemoveItemForServer_Implementation(UItemBase* ItemToRe
     
     if (RemoveItem(ItemToRemove))
     {
-        // RemoveItem에서 이미 SyncToClients() 호출됨
+        
         UE_LOG(LogInventory, Log, TEXT("RemoveItemForServer: Success"));
     }
 }
@@ -550,7 +642,7 @@ void UInventoryComponent::TryAddForServer_Implementation(UItemBase* ItemToAdd)
     {
         UE_LOG(LogInventory, Warning, TEXT("TryAddForServer: Failed"));
     }
-    // TryAddItem에서 이미 SyncToClients() 호출됨
+    
 }
 
 void UInventoryComponent::AddItemAtForServer_Implementation(UItemBase* ItemToAdd, int32 TopLeftIndex)
@@ -576,35 +668,17 @@ void UInventoryComponent::AddItemAtForServer_Implementation(UItemBase* ItemToAdd
     
     if (ItemHandler->AddItemAt(ItemToAdd, TopLeftIndex))
     {
-        // ★★★ 동기화 ★★★
+        
         SyncToClients();
         
         UE_LOG(LogInventory, Log, TEXT("AddItemAtForServer: Success, synced"));
     }
 }
 
-// ============================================
-// Network RPCs - Client
-// ============================================
 
-void UInventoryComponent::Client_SyncItem_Implementation(UItemDataAsset* ItemDef, bool bIsRotated,
-                                                        FGuid ItemGuid, int32 TopLeftIndex)
-{
-    // OnRep_ItemSyncData가 자동으로 처리하므로 비어있어도 됨
-    UE_LOG(LogInventory, Verbose, TEXT("Client_SyncItem: Handled by OnRep_ItemSyncData"));
-}
 
-void UInventoryComponent::Client_RemoveItem_Implementation(FGuid ItemGuid)
-{
-    // OnRep_ItemSyncData가 자동으로 처리
-    UE_LOG(LogInventory, Verbose, TEXT("Client_RemoveItem: Handled by OnRep_ItemSyncData"));
-}
 
-void UInventoryComponent::Client_RejectItemPlacement_Implementation(FGuid ItemGuid, int32 OriginalIndex)
-{
-    // OnRep_ItemSyncData가 원래 상태로 복원
-    UE_LOG(LogInventory, Log, TEXT("Client_RejectItemPlacement: Server rejected, will sync via OnRep"));
-}
+
 
 void UInventoryComponent::RefreshLayoutForClient_Implementation()
 {
@@ -648,9 +722,9 @@ void UInventoryComponent::Client_SyncItemClass_Implementation(TSubclassOf<AItemA
     }
 }
 
-// ============================================
-// Helper Functions
-// ============================================
+
+
+
 
 void UInventoryComponent::ResizeItemsToGrid(bool bZeroInit)
 {
@@ -663,6 +737,197 @@ void UInventoryComponent::ResizeItemsToGrid(bool bZeroInit)
     Storage->ResizeStorage(bZeroInit);
 }
 
+bool UInventoryComponent::SaveInventoryToDatabase(int32 PlayerID)
+{
+    
+    if (GetOwnerRole() != ROLE_Authority)
+    {
+        UE_LOG(LogInventory, Warning, TEXT("SaveInventoryToDatabase: Not authority! (Role=%d)"), 
+               static_cast<int32>(GetOwnerRole()));
+        return false;
+    }
+
+    if (PlayerID < 0)
+    {
+        UE_LOG(LogInventory, Error, TEXT("SaveInventoryToDatabase: Invalid PlayerID=%d"), PlayerID);
+        return false;
+    }
+
+    if (!Storage)
+    {
+        UE_LOG(LogInventory, Error, TEXT("SaveInventoryToDatabase: Storage is null!"));
+        return false;
+    }
+
+    
+    UDatabaseManager* DatabaseManager = GetWorld()->GetGameInstance()->GetSubsystem<UDatabaseManager>();
+    if (!DatabaseManager)
+    {
+        UE_LOG(LogInventory, Error, TEXT("SaveInventoryToDatabase: DatabaseManager not found!"));
+        return false;
+    }
+
+    
+    TMap<UItemBase*, FIntPoint> ItemsWithPositions = Storage->GetAllUniqueItems();
+
+    UE_LOG(LogInventory, Log, TEXT("SaveInventoryToDatabase: Saving %d items for PlayerID=%d"),
+           ItemsWithPositions.Num(), PlayerID);
+
+    
+    bool bSuccess = DatabaseManager->SaveInventory(PlayerID, ItemsWithPositions);
+
+    if (bSuccess)
+    {
+        UE_LOG(LogInventory, Log, TEXT("âœ… SaveInventoryToDatabase: Success! Saved %d items"),
+               ItemsWithPositions.Num());
+    }
+    else
+    {
+        UE_LOG(LogInventory, Error, TEXT("âŒ SaveInventoryToDatabase: Failed!"));
+    }
+
+    return bSuccess;
+}
+
+bool UInventoryComponent::LoadInventoryFromDatabase(int32 PlayerID)
+{
+    
+    if (GetOwnerRole() != ROLE_Authority)
+    {
+        UE_LOG(LogInventory, Warning, TEXT("LoadInventoryFromDatabase: Not authority! (Role=%d)"),
+               static_cast<int32>(GetOwnerRole()));
+        return false;
+    }
+
+    if (PlayerID < 0)
+    {
+        UE_LOG(LogInventory, Error, TEXT("LoadInventoryFromDatabase: Invalid PlayerID=%d"), PlayerID);
+        return false;
+    }
+
+    if (!Storage || !ItemHandler || !GridManager)
+    {
+        UE_LOG(LogInventory, Error, TEXT("LoadInventoryFromDatabase: Required modules not initialized!"));
+        return false;
+    }
+
+    
+    UDatabaseManager* DatabaseManager = GetWorld()->GetGameInstance()->GetSubsystem<UDatabaseManager>();
+    if (!DatabaseManager)
+    {
+        UE_LOG(LogInventory, Error, TEXT("LoadInventoryFromDatabase: DatabaseManager not found!"));
+        return false;
+    }
+
+    UE_LOG(LogInventory, Log, TEXT("LoadInventoryFromDatabase: Loading inventory for PlayerID=%d"), PlayerID);
+
+    
+    Storage->ClearAll();
+
+    
+    TMap<UItemBase*, FIntPoint> LoadedItems = DatabaseManager->LoadInventory(PlayerID, this);
+
+    if (LoadedItems.Num() == 0)
+    {
+        UE_LOG(LogInventory, Warning, TEXT("LoadInventoryFromDatabase: No items found for PlayerID=%d"), PlayerID);
+        
+        
+        SyncToClients();
+        NotifyItemsChanged();
+        return true;
+    }
+
+    UE_LOG(LogInventory, Log, TEXT("LoadInventoryFromDatabase: Loaded %d items from database"), 
+           LoadedItems.Num());
+
+    
+    int32 PlacedCount = 0;
+    for (const auto& Pair : LoadedItems)
+    {
+        UItemBase* Item = Pair.Key;
+        const FIntPoint& GridPos = Pair.Value;
+
+        if (!Item)
+        {
+            UE_LOG(LogInventory, Warning, TEXT("LoadInventoryFromDatabase: Null item in loaded data"));
+            continue;
+        }
+
+        
+        int32 TopLeftIndex = GridManager->TileToIndex(GridPos);
+
+        if (!GridManager->IsIndexValid(TopLeftIndex))
+        {
+            UE_LOG(LogInventory, Warning, TEXT("LoadInventoryFromDatabase: Invalid position (%d,%d) for %s"),
+                   GridPos.X, GridPos.Y, *Item->DisplayName());
+            continue;
+        }
+
+        
+        ItemHandler->PlaceItemInGrid(Item, TopLeftIndex);
+        PlacedCount++;
+
+        
+        if (Item->IsFish())
+        {
+            float Length, Weight;
+            FString FishName;
+            if (Item->GetFishInfo(Length, Weight, FishName))
+            {
+                UE_LOG(LogInventory, Log, TEXT("  âœ… Placed Fish: %s - %.1fcm, %.2fkg at (%d,%d)"),
+                       *FishName, Length, Weight, GridPos.X, GridPos.Y);
+            }
+        }
+        else
+        {
+            UE_LOG(LogInventory, Log, TEXT("  âœ… Placed: %s at (%d,%d)"),
+                   *Item->DisplayName(), GridPos.X, GridPos.Y);
+        }
+    }
+
+    UE_LOG(LogInventory, Log, TEXT("LoadInventoryFromDatabase: Successfully placed %d/%d items"),
+           PlacedCount, LoadedItems.Num());
+
+    
+    Storage->RefreshUniqueItemsCache();
+
+    
+    SyncToClients();
+
+    
+    NotifyItemsChanged();
+
+    UE_LOG(LogInventory, Log, TEXT("âœ… LoadInventoryFromDatabase: Complete! (PlayerID=%d, Items=%d)"),
+           PlayerID, PlacedCount);
+
+    return true;
+}
+
+void UInventoryComponent::ClearAllItems()
+{
+    if (!Storage)
+    {
+        UE_LOG(LogInventory, Error, TEXT("ClearAllItems: Storage is null!"));
+        return;
+    }
+
+    UE_LOG(LogInventory, Log, TEXT("ClearAllItems: Clearing all items from inventory"));
+
+    
+    Storage->ClearAll();
+
+    
+    if (GetOwnerRole() == ROLE_Authority)
+    {
+        SyncToClients();
+    }
+
+    
+    NotifyItemsChanged();
+
+    UE_LOG(LogInventory, Log, TEXT("âœ… ClearAllItems: Complete"));
+}
+
 bool UInventoryComponent::GetResultAtIndex(int32 Index)
 {
     if (!GridManager)
@@ -671,46 +936,4 @@ bool UInventoryComponent::GetResultAtIndex(int32 Index)
     }
     
     return GridManager->IsIndexValid(Index);
-}
-
-bool UInventoryPlacementValidator::CheckTileOccupancy(FIntPoint Tile, UItemBase* IgnoreItem) const
-{
-    if (!GridManager || !Storage)
-    {
-        return false;
-    }
-    
-    if (!GridManager->IsTileValid(Tile))
-    {
-        return false;
-    }
-    
-    const int32 Index = GridManager->TileToIndex(Tile);
-    UItemBase* Occupant = Storage->GetItemAtIndex(Index);
-    
-    return (Occupant == nullptr || Occupant == IgnoreItem);
-}
-
-bool UInventoryPlacementValidator::CheckBoundsForItem(UItemBase* Item, FIntPoint TopLeftTile) const
-{
-    if (!Item || !GridManager)
-    {
-        return false;
-    }
-    
-    const FIntPoint Dims = Item->GetCurrentDimensions();
-    const int32 Cols = GridManager->GetColumns();
-    const int32 Rows = GridManager->GetRows();
-    
-    if (TopLeftTile.X < 0 || TopLeftTile.Y < 0)
-    {
-        return false;
-    }
-    
-    if (TopLeftTile.X + Dims.X > Cols || TopLeftTile.Y + Dims.Y > Rows)
-    {
-        return false;
-    }
-    
-    return true;
 }

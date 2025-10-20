@@ -1,6 +1,6 @@
-﻿// ============================================
-// InventoryPlacementValidator.cpp
-// ============================================
+﻿
+
+
 #include "InventoryPlacementValidator.h"
 
 #include "Fishing.h"
@@ -38,7 +38,7 @@ bool UInventoryPlacementValidator::CanPlaceItemAt(UItemBase* Item, FIntPoint Top
         return false;
     }
     
-    // Check bounds
+    
     if (!CheckBoundsForItem(Item, TopLeftTile))
     {
         UE_LOG(LogInventoryValidator, Verbose, TEXT("CanPlaceItemAt: Out of bounds at %s"),
@@ -46,7 +46,7 @@ bool UInventoryPlacementValidator::CanPlaceItemAt(UItemBase* Item, FIntPoint Top
         return false;
     }
     
-    // Check each tile the item would occupy
+    
     const FIntPoint CurrentDims = Item->GetCurrentDimensions();
     
     for (int32 y = 0; y < CurrentDims.Y; ++y)
@@ -111,3 +111,45 @@ bool UInventoryPlacementValidator::FindFirstAvailableSlot(UItemBase* Item, int32
     return false;
 }
 
+
+bool UInventoryPlacementValidator::CheckTileOccupancy(FIntPoint Tile, UItemBase* IgnoreItem) const
+{
+    if (!GridManager || !Storage)
+    {
+        return false;
+    }
+    
+    if (!GridManager->IsTileValid(Tile))
+    {
+        return false;
+    }
+    
+    const int32 Index = GridManager->TileToIndex(Tile);
+    UItemBase* Occupant = Storage->GetItemAtIndex(Index);
+    
+    return (Occupant == nullptr || Occupant == IgnoreItem);
+}
+
+bool UInventoryPlacementValidator::CheckBoundsForItem(UItemBase* Item, FIntPoint TopLeftTile) const
+{
+    if (!Item || !GridManager)
+    {
+        return false;
+    }
+    
+    const FIntPoint Dims = Item->GetCurrentDimensions();
+    const int32 Cols = GridManager->GetColumns();
+    const int32 Rows = GridManager->GetRows();
+    
+    if (TopLeftTile.X < 0 || TopLeftTile.Y < 0)
+    {
+        return false;
+    }
+    
+    if (TopLeftTile.X + Dims.X > Cols || TopLeftTile.Y + Dims.Y > Rows)
+    {
+        return false;
+    }
+    
+    return true;
+}

@@ -10,6 +10,7 @@
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "Variant_Fishing/ActorComponent/FishingFeatures/FishingComponent.h"
+#include "Variant_Fishing/Database/DatabaseManager.h"
 
 void UFishingInventoryModule::Initialize(UFishingComponent* InOwner,
                                          AFishingCharacter* InCharacter,
@@ -22,103 +23,155 @@ void UFishingInventoryModule::Initialize(UFishingComponent* InOwner,
 	UE_LOG(LogFishingComponent, Log, TEXT("InventoryModule initialized"));
 }
 
-void UFishingInventoryModule::CreateFishItemFromCatch(AFish* CaughtFish)
+void UFishingInventoryModule::CreateFishItemFromCatch(AFish* CaughtFish, int32 PlayerID)
 {
-	if (!CaughtFish || !OwnerComponent)
-	{
-		return;
-	}
+    
+    if (!OwnerComponent || !OwnerComponent->GetOwner() || !OwnerComponent->GetOwner()->HasAuthority())
+    {
+        UE_LOG(LogFishingComponent, Error, TEXT("CreateFishItemFromCatch: Must be called on server!"));
+        return;
+    }
 
-	UFishData* FishData = CaughtFish->GetFishData();
-	if (!FishData)
-	{
-		UE_LOG(LogFishingComponent, Error, TEXT("CaughtFish has no FishData!"));
-		return;
-	}
+    if (!CaughtFish)
+    {
+        UE_LOG(LogFishingComponent, Error, TEXT("CreateFishItemFromCatch: CaughtFish is null!"));
+        return;
+    }
 
-	UWorld* World = OwnerComponent->GetWorld();
-	if (!World)
-	{
-		UE_LOG(LogFishingComponent, Error, TEXT("CreateFishItemFromCatch: GetWorld() returned null!"));
-		return;
-	}
+    UFishData* FishData = CaughtFish->GetFishData();
+    if (!FishData)
+    {
+        UE_LOG(LogFishingComponent, Error, TEXT("CaughtFish has no FishData!"));
+        return;
+    }
 
-	// Destroy previous fish item if exists
-	if (CurrentDisplayFishItem)
-	{
-		CurrentDisplayFishItem->Destroy();
-		CurrentDisplayFishItem = nullptr;
-	}
+    UWorld* World = OwnerComponent->GetWorld();
+    if (!World)
+    {
+        UE_LOG(LogFishingComponent, Error, TEXT("CreateFishItemFromCatch: GetWorld() returned null!"));
+        return;
+    }
 
-	// Create item from fish data
-	UItemBase* ItemFish = FishData->CreateItemFromDataAsset(OwnerComponent);
-	if (!ItemFish)
-	{
-		UE_LOG(LogFishingComponent, Error, TEXT("Failed to create item from fish data! - Check ItemActorSubClass Cache in FishingInventory Comp"));
-		return;
-	}
+    
+    if (CurrentDisplayFishItem)
+    {
+        CurrentDisplayFishItem->Destroy();
+        CurrentDisplayFishItem = nullptr;
+    }
 
-	const FTransform SpawnTM(FRotator::ZeroRotator, FVector::ZeroVector);
+    
+    
+    
+    
+    FString LocationName = TEXT("Unknown Waters");
+    if (OwnerComponent->GetOwner())
+    {
+        FVector Location = OwnerComponent->GetOwner()->GetActorLocation();
+        LocationName = FString::Printf(TEXT("Location (%.0f, %.0f, %.0f)"), 
+            Location.X, Location.Y, Location.Z);
+    }
+	
+    
+    FFishSpecificData FishStats = FishData->GenerateRandomFishStats(LocationName);
+    
+    UE_LOG(LogFishingComponent, Log, TEXT("🐟 Generated Fish: %s - Length: %.1fcm (%.0f%%), Weight: %.2fkg (%.0f%%)"),
+           *FishStats.FishDataName,
+           FishStats.ActualLength, FishStats.GetLengthPercentile() * 100.0f,
+           FishStats.ActualWeight, FishStats.GetWeightPercentile() * 100.0f);
+	
+    
+    UItemBase* ItemFish = FishData->CreateItemFromFishData(OwnerComponent, FishStats);
+    if (!ItemFish)
+    {
+        UE_LOG(LogFishingComponent, Error, 
+            TEXT("Failed to create item from fish data! - Check ItemActorSubClass Cache"));
+        return;
+    }
 
-	CurrentDisplayFishItem = ItemFish->SpawnItemActor(
-		World,
-		SpawnTM,
-		ItemActorSubClass,
-		OwnerComponent->GetOwner()
-	);
+    
+    if (UGameInstance* GI = World->GetGameInstance())
+    {
+        UDatabaseManager* DatabaseManager = GI->GetSubsystem<UDatabaseManager>();
+        if (DatabaseManager)
+        {
+            DatabaseManager->RecordCaughtFish(
+                PlayerID,
+                TEXT("TEMP"),
+                FishStats.FishDataName,
+                FishStats.ActualLength,
+                FishStats.ActualWeight
+            );
+        }
+    }
+	
+    
+    
+    
+    
+    const FTransform SpawnTM(FRotator::ZeroRotator, FVector::ZeroVector);
 
-	if (CurrentDisplayFishItem)
-	{
-		CurrentDisplayFishItem->SetHidden(true);
-		UE_LOG(LogFishingComponent, Log, TEXT("Fish item spawned: %s"),
-		       *CurrentDisplayFishItem->GetNameFromItem());
+    
+    CurrentDisplayFishItem = ItemFish->SpawnItemActor(
+        World,
+        SpawnTM,
+        ItemActorSubClass,
+        OwnerComponent->GetOwner()
+    );
 
-		// Set scale
-		const FVector FinalScale = FishData->MeshScale.IsNearlyZero() ? FVector(10.f) : FishData->MeshScale;
-		CurrentDisplayFishItem->SetActorScale3D(FinalScale);
+    if (CurrentDisplayFishItem)
+    {
+        CurrentDisplayFishItem->SetHidden(true);
+        
+        UE_LOG(LogFishingComponent, Log, TEXT("Fish item spawned: %s"),
+               *CurrentDisplayFishItem->GetNameFromItem());
 
-		// Disable physics and collision
-		if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentDisplayFishItem->GetRootComponent()))
-		{
-			Prim->SetSimulatePhysics(false);
-			Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		}
+        
+        const FVector FinalScale = FishData->MeshScale.IsNearlyZero() ? FVector(10.f) : FishData->MeshScale;
+        CurrentDisplayFishItem->SetActorScale3D(FinalScale);
 
-		// Attach to show-off socket
-		if (CharacterMesh && CharacterMesh->DoesSocketExist(ShowOffSocket))
-		{
-			CurrentDisplayFishItem->AttachToComponent(
-				CharacterMesh,
-				FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-				ShowOffSocket);
+        
+        if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentDisplayFishItem->GetRootComponent()))
+        {
+            Prim->SetSimulatePhysics(false);
+            Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        }
 
-			UE_LOG(LogFishingComponent, Log, TEXT("Attached to socket: %s"), *ShowOffSocket.ToString());
-		}
+        
+        if (CharacterMesh && CharacterMesh->DoesSocketExist(ShowOffSocket))
+        {
+            CurrentDisplayFishItem->AttachToComponent(
+                CharacterMesh,
+                FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+                ShowOffSocket);
 
-		// Reset relative transform
-		if (USceneComponent* Root = CurrentDisplayFishItem->GetRootComponent())
-		{
-			Root->SetRelativeLocation(FVector::ZeroVector);
-			Root->SetRelativeRotation(FRotator::ZeroRotator);
-		}
+            UE_LOG(LogFishingComponent, Log, TEXT("Attached to socket: %s"), *ShowOffSocket.ToString());
+        }
 
-		CurrentDisplayFishItem->SetHidden(true);
-		
-		// Update parent component's replicated item reference
-		if (OwnerComponent)
-		{
-			OwnerComponent->CurrentDisplayFishItem = CurrentDisplayFishItem;
-		}
-		
-		UE_LOG(LogFishingComponent, Log, TEXT("Fish item setup complete"));
-	}
-	else
-	{
-		UE_LOG(LogFishingComponent, Error, TEXT("Failed to spawn fish item actor!"));
-	}
+        
+        if (USceneComponent* Root = CurrentDisplayFishItem->GetRootComponent())
+        {
+            Root->SetRelativeLocation(FVector::ZeroVector);
+            Root->SetRelativeRotation(FRotator::ZeroRotator);
+        }
 
-	// Mark fish as caught
-	CaughtFish->OnCaught();
+        CurrentDisplayFishItem->SetHidden(true);
+        
+        
+        if (OwnerComponent)
+        {
+            OwnerComponent->CurrentDisplayFishItem = CurrentDisplayFishItem;
+        }
+        
+        UE_LOG(LogFishingComponent, Log, TEXT("✅ Fish item setup complete: %s"), 
+               *ItemFish->GetDebugString());
+    }
+    else
+    {
+        UE_LOG(LogFishingComponent, Error, TEXT("Failed to spawn fish item actor!"));
+    }
+
+    
+    CaughtFish->OnCaught();
 }
 
 void UFishingInventoryModule::DestroyCurrentFishItem()
@@ -194,25 +247,7 @@ void UFishingInventoryModule::AddFishToInventory()
 		return;
 	}
 
-	const bool bAdded = OwnerCharacter->CoreInventoryComponent->TryAddItemFroActor(CurrentDisplayFishItem);
-	
-	if (bAdded)
-	{
-		UE_LOG(LogFishingComponent, Log, TEXT("Fish successfully added to inventory"));
-		CurrentDisplayFishItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-		CurrentDisplayFishItem->Destroy();
-		CurrentDisplayFishItem = nullptr;
-		
-		if (OwnerComponent)
-		{
-			OwnerComponent->CurrentDisplayFishItem = nullptr;
-		}
-	}
-	else
-	{
-		UE_LOG(LogFishingComponent, Warning, TEXT("Inventory full! Dropping fish on ground"));
-		DropFishOnGround();
-	}
+	OwnerCharacter->CoreInventoryComponent->TryAddItemFroActor(CurrentDisplayFishItem);
 }
 
 void UFishingInventoryModule::DropFishOnGround()
@@ -249,7 +284,7 @@ void UFishingInventoryModule::DropFishOnGround()
 
 	Item->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
-	// Calculate drop location
+	
 	const FVector OwnerLoc = OwnerActor->GetActorLocation();
 	const FVector OwnerFwd = OwnerActor->GetActorForwardVector();
 	const FVector TraceStart = OwnerLoc - OwnerFwd * 25.f + FVector(0.f, 0.f, 50.f);
@@ -268,7 +303,7 @@ void UFishingInventoryModule::DropFishOnGround()
 
 	const FRotator DropRot(0.f, OwnerActor->GetActorRotation().Yaw, 0.f);
 
-	// Setup physics and drop
+	
 	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Item->GetRootComponent()))
 	{
 		Prim->SetSimulatePhysics(false);
@@ -284,7 +319,7 @@ void UFishingInventoryModule::DropFishOnGround()
 		Prim->SetSimulatePhysics(true);
 		Prim->WakeAllRigidBodies();
 		
-		// Add impulse to push item away from player
+		
 		const FVector Nudge = (-OwnerFwd * 50.f) + FVector(0.f, 0.f, 100.f);
 		Prim->AddImpulse(Nudge, NAME_None, true);
 

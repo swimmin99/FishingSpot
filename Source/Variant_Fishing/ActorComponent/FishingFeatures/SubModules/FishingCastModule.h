@@ -7,9 +7,7 @@
 class UFishingComponent;
 class AFishingCharacter;
 
-/**
- * Handles casting validation and collision checking
- */
+
 UCLASS()
 class FISHING_API UFishingCastModule : public UObject
 {
@@ -18,10 +16,10 @@ class FISHING_API UFishingCastModule : public UObject
 public:
 	void Initialize(UFishingComponent* InOwner, AFishingCharacter* InCharacter);
 	
-	// Casting validation
+	
 	bool CheckCastingCollision(FVector& OutTargetLocation);
 	
-	// Configuration
+	
 	void SetForwardOffset(float Offset) { CastCheckForwardOffset = Offset; }
 	void SetDownOffset(float Offset) { CastCheckDownOffset = Offset; }
 	void SetMaxHeight(float Height) { CastMaxHeight = Height; }
@@ -39,7 +37,7 @@ protected:
 	UPROPERTY()
 	AFishingCharacter* OwnerCharacter = nullptr;
 	
-	// Configuration
+	
 	float CastCheckForwardOffset = 150.f;
 	float CastCheckDownOffset = 130.f;
 	float CastMaxHeight = 200.f;

@@ -1,29 +1,29 @@
-// ============================================
-// InventoryComponent.h (수정)
-// ============================================
+
+
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "InventoryTypes.h"
 #include "Variant_Fishing/Widget/Inventory/InventoryWidget.h"
+#include "../../Interface/ItemDataProvider.h"
+#include "Variant_Fishing/Widget/Inventory/ItemWidget.h"
+#include "FishingCharacter.h"
 #include "InventoryComponent.generated.h"
 
 class UInventoryWidget;
 class UInventoryDescriptionWidget;
 class AItemActor;
-class AFishingCharacter;
 class UInventoryGridWidget;
 class UItemBase;
-class UItemDataAsset;
 
-// Module classes
+
 class UInventoryGridManager;
 class UInventoryStorage;
 class UInventoryPlacementValidator;
 class UInventoryItemHandler;
 class UInventoryUIManager;
-class UInventoryNetworkSync;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class FISHING_API UInventoryComponent : public UActorComponent
@@ -32,38 +32,38 @@ class FISHING_API UInventoryComponent : public UActorComponent
 
 public:
     UInventoryComponent();
+
+    virtual void TurnReplicationOff();
     
-    // Lifecycle
+    
     virtual void BeginPlay() override;
     virtual void EndPlay(EEndPlayReason::Type EndPlayReason) override;
     virtual void Initalize(AActor* Owner);
+
     
-    // Widget Management
     virtual void RegisterInventoryWidget(UInventoryWidget* InInventoryWidget);
-    virtual void UpdateDescription(UItemBase* Item);
-    virtual void ClearDescription();
     virtual void SetFocusGridWidget();
     void ClearInventoryWidget();
     
-    // Grid Operations
+    
     void RefreshGridLayout();
     
-    // Grid Info
+    
     FIntPoint IndexToTile(int32 Index) const;
     int32 TileToIndex(FIntPoint Tile) const;
     bool IsTileValid(FIntPoint IntPoint);
     FString DumpGrid() const;
     
-    // Storage Access
+    
     UItemBase* GetItemAtIndex(int32 Index);
     TMap<UItemBase*, FIntPoint> GetAllItems();
     void RefreshAllItems();
     
-    // Validation
+    
     bool IsRoomAvailableAt(UItemBase* ItemToPlace, FIntPoint TopLeftTile, UItemBase* IgnoreItem);
     bool IsRoomAvailable(UItemBase* ItemToAdd, int32 TopLeftIndex);
     
-    // Item Operations
+    
     UFUNCTION(BlueprintCallable)
     bool TryAddItem(UItemBase* ItemToAdd);
     
@@ -75,10 +75,25 @@ public:
     
     void AddItemAt(UItemBase* ItemToAdd, int32 TopLeftIndex);
     void NotifyItemsChanged();
+
+    UFUNCTION(BlueprintCallable, Category = "Inventory")
+    FIntPoint GetItemTopLeftTile(UItemBase* Item)
+    {
+        if (!Item)
+        {
+            return FIntPoint::ZeroValue;
+        }
+
+        TMap<UItemBase*, FIntPoint> AllItems = GetAllItems();
+        if (AllItems.Contains(Item))
+        {
+            return AllItems[Item];
+        }
+
+        return FIntPoint::ZeroValue;
+    }
     
-    // Network RPCs
-    UFUNCTION(Client, Reliable)
-    void Client_RejectItemPlacement(FGuid ItemGuid, int32 OriginalIndex);
+
     
     UFUNCTION(Client, Reliable)
     void RefreshLayoutForClient();
@@ -97,29 +112,44 @@ public:
     
     UFUNCTION(Server, Reliable)
     void Server_DropItemToWorld(UItemBase* ItemToDrop);
-    
-    UFUNCTION(Client, Reliable)
-    void Client_SyncItem(UItemDataAsset* ItemDef, bool bIsRotated, FGuid ItemGuid, int32 TopLeftIndex);
-    
-    UFUNCTION(Client, Reliable)
-    void Client_RemoveItem(FGuid ItemGuid);
-    
+
+    UFUNCTION()
+    bool FindItemTopLeftIndex(UItemBase* Item, int32& OutIndex) const;
+
+    UFUNCTION()
+    bool FindItemIndex(UItemBase* Item, int32& OutIndex) const;
+
+
     UFUNCTION(Client, Reliable)
     void Client_SyncItemClass(TSubclassOf<AItemActor> ItemClass, int32 TopLeftIndex);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Category")
+    TSet<EItemCategory> AllowedCategories;
+
+    UFUNCTION(BlueprintPure, Category = "Inventory|Category")
+    bool IsItemCategoryAllowed(UItemBase* Item) const;
+
+    UFUNCTION(BlueprintPure, Category = "Inventory|Category")
+    bool IsCategoryAllowed(EItemCategory Category) const;
+
+    UFUNCTION(BlueprintPure, Category = "Inventory|Category")
+    TArray<EItemCategory> GetAllowedCategoriesArray() const;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Category")
+    bool bAllowAllCategories = true;
+
+
     
-    // ★★★ 레플리케이션 콜백 ★★★
+    
     UFUNCTION()
     void OnRep_ItemSyncData();
     
-    // Public Properties
+    
     UPROPERTY(EditAnywhere, Replicated)
     int32 Columns = 10;
     
     UPROPERTY(EditAnywhere, Replicated)
     int32 Rows = 10;
-    
-    UPROPERTY(EditAnywhere, Replicated)
-    float TileSize = 32.f;
     
     UPROPERTY(EditDefaultsOnly, Category="UI")
     TSubclassOf<UUserWidget> ItemWidgetClass;
@@ -133,13 +163,26 @@ public:
     void ResizeItemsToGrid(bool bZeroInit);
 
     
+
+    
+    UFUNCTION(BlueprintCallable, Category = "Inventory|Database")
+    bool SaveInventoryToDatabase(int32 PlayerID);
+
+    UFUNCTION(BlueprintCallable, Category = "Inventory|Database")
+    bool LoadInventoryFromDatabase(int32 PlayerID);
+
+    UFUNCTION(BlueprintCallable, Category = "Inventory|Database")
+    void ClearAllItems();
+
+
+    
 protected:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     
     UPROPERTY()
     AFishingCharacter* CharacterReference = nullptr;
     
-    // Module Instances
+    
     UPROPERTY()
     UInventoryGridManager* GridManager;
     
@@ -155,10 +198,7 @@ protected:
     UPROPERTY()
     UInventoryUIManager* UIManager;
     
-    UPROPERTY()
-    UInventoryNetworkSync* NetworkSync;
     
-    // ★★★ 레플리케이션되는 동기화 데이터 ★★★
     UPROPERTY(ReplicatedUsing=OnRep_ItemSyncData)
     TArray<FItemSyncData> ItemSyncData;
 
@@ -166,7 +206,7 @@ protected:
 private:
     void InitializeModules();
     bool GetResultAtIndex(int32 Index);
+    bool IsReplicationOff = false;
     
-    // ★★★ 서버 전용: 클라이언트에 동기화 ★★★
     void SyncToClients();
 };

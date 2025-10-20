@@ -4,6 +4,9 @@
 
 class UTextBlock;
 
+
+
+
 UCLASS()
 class FISHING_API UInteractionWidget : public UUserWidget
 {

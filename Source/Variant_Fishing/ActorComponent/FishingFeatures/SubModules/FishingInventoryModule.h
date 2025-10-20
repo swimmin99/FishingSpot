@@ -10,9 +10,7 @@ class USkeletalMeshComponent;
 class UFishingComponent;
 class AFishingCharacter;
 
-/**
- * Handles fish item creation, display, and inventory operations
- */
+
 UCLASS()
 class FISHING_API UFishingInventoryModule : public UObject
 {
@@ -23,23 +21,23 @@ public:
 					AFishingCharacter* InCharacter,
 					USkeletalMeshComponent* InCharacterMesh);
 	
-	// Fish item creation
-	void CreateFishItemFromCatch(AFish* CaughtFish);
+	
+	void CreateFishItemFromCatch(AFish* CaughtFish, int32 PlayerID);
 	void DestroyCurrentFishItem();
 	
-	// Fish display
+	
 	void AttachAndRevealShowOffItem(FName ShowOffSocket);
 	void HideShowOffItem();
 	
-	// Inventory operations
+	
 	void AddFishToInventory();
 	void DropFishOnGround();
 	
-	// Configuration
+	
 	void SetItemActorClass(TSubclassOf<AItemActor> InClass) { ItemActorSubClass = InClass; }
 	void SetShowOffSocket(FName InSocket) { ShowOffSocket = InSocket; }
 	
-	// Getters
+	
 	AItemActor* GetCurrentDisplayFishItem() const { return CurrentDisplayFishItem; }
 	void SetCurrentDisplayFishItem(AItemActor* Item) { CurrentDisplayFishItem = Item; }
 

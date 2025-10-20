@@ -1,11 +1,10 @@
-﻿// ============================================
-// InventoryStorage.cpp (수정)
-// ============================================
+﻿
 #include "InventoryStorage.h"
-
 #include "Fishing.h"
 #include "InventoryGridManager.h"
 #include "Variant_Fishing/Data/ItemBase.h"
+#include "Variant_Fishing/Data/FishData.h"
+#include "Engine/AssetManager.h"
 
 void UInventoryStorage::Initialize(UInventoryGridManager* InGridManager, UObject* InOuter)
 {
@@ -129,54 +128,40 @@ void UInventoryStorage::RefreshUniqueItemsCache()
            CachedUniqueItems.Num());
 }
 
-// ★★★ 서버에서 호출: 동기화 데이터 생성 ★★★
+
+
+
 TArray<FItemSyncData> UInventoryStorage::GenerateSyncData() const
 {
     TArray<FItemSyncData> SyncData;
-    TSet<FGuid> ProcessedGuids;
+    if (!GridManager) { return SyncData; }
+
     
-    if (!GridManager)
-    {
-        UE_LOG(LogInventoryStorage, Error, TEXT("GenerateSyncData: GridManager is null!"));
-        return SyncData;
-    }
-    
-    // 유니크 아이템만 전송 (같은 아이템이 여러 슬롯 차지하므로)
-    for (int32 i = 0; i < Items.Num(); i++)
-    {
-        UItemBase* Item = Items[i];
+    for (const auto& Pair : CachedUniqueItems) 
+        {
+        UItemBase* Item = Pair.Key;
+        const FIntPoint TopLeftTile = Pair.Value;
+        const int32 TopLeftIndex = GridManager->TileToIndex(TopLeftTile);
+        if (!Item || !GridManager->IsIndexValid(TopLeftIndex)) { continue; }
+
         
-        if (!Item || !Item->ItemDef)
-            continue;
-        
-        // 이미 처리한 아이템이면 스킵
-        if (ProcessedGuids.Contains(Item->ItemGuid))
-            continue;
-        
-        // 이 아이템의 TopLeft 위치 찾기 (첫 등장 위치)
-        int32 TopLeftIndex = i;
-        
-        FItemSyncData Data(
-            Item->ItemDef,
-            Item->ItemGuid,
-            Item->bIsRotated,
-            TopLeftIndex
-        );
-        
-        SyncData.Add(Data);
-        ProcessedGuids.Add(Item->ItemGuid);
-        
-        UE_LOG(LogInventoryStorage, Verbose, TEXT("GenerateSyncData: Added %s at index %d"),
-               *Item->GetName(), TopLeftIndex);
-    }
-    
-    UE_LOG(LogInventoryStorage, Log, TEXT("GenerateSyncData: Generated %d sync entries"), 
-           SyncData.Num());
-    
+        FItemSyncData Data(Item, TopLeftIndex);
+        if (Data.IsValid())
+        {
+            SyncData.Add(Data);
+        }
+        else
+        {
+            UE_LOG(LogInventoryStorage, Warning, TEXT("GenerateSyncData: Invalid sync for %s"), *Item->DisplayName());
+        }
+        }
+
+    UE_LOG(LogInventoryStorage, Log, TEXT("GenerateSyncData: %d entries"), SyncData.Num());
     return SyncData;
 }
 
-// ★★★ 클라이언트에서 호출: 동기화 데이터 적용 ★★★
+
+
 void UInventoryStorage::ApplySyncData(const TArray<FItemSyncData>& SyncData)
 {
     if (!GridManager || !Outer)
@@ -188,10 +173,10 @@ void UInventoryStorage::ApplySyncData(const TArray<FItemSyncData>& SyncData)
     UE_LOG(LogInventoryStorage, Log, TEXT("ApplySyncData: Applying %d sync entries"), 
            SyncData.Num());
     
-    // 기존 아이템 전부 클리어
+    
     ClearAll();
     
-    // 동기화 데이터로부터 아이템 재생성 및 배치
+    
     for (const FItemSyncData& Data : SyncData)
     {
         if (!Data.IsValid())
@@ -200,46 +185,65 @@ void UInventoryStorage::ApplySyncData(const TArray<FItemSyncData>& SyncData)
             continue;
         }
         
-        // UItemBase 생성
-        UItemBase* NewItem = CreateItemFromSyncData(Data);
-        if (!NewItem)
-        {
-            UE_LOG(LogInventoryStorage, Error, TEXT("ApplySyncData: Failed to create item"));
-            continue;
-        }
         
-        // 그리드에 배치
-        PlaceItemInGrid(NewItem, Data.TopLeftIndex);
-        
-        UE_LOG(LogInventoryStorage, Verbose, TEXT("ApplySyncData: Placed %s at index %d"),
-               *NewItem->GetName(), Data.TopLeftIndex);
+        CreateItemFromSyncData(Data);
     }
     
-    // 캐시 갱신
+    
     RefreshUniqueItemsCache();
     
     UE_LOG(LogInventoryStorage, Log, TEXT("ApplySyncData: Complete. %d unique items placed"),
            CachedUniqueItems.Num());
 }
 
-UItemBase* UInventoryStorage::CreateItemFromSyncData(const FItemSyncData& SyncData)
+
+
+
+void UInventoryStorage::CreateItemFromSyncData(const FItemSyncData& SyncData)
 {
-    if (!Outer || !SyncData.ItemDef)
+    if (!Outer)
     {
-        return nullptr;
+        UE_LOG(LogInventoryStorage, Error, TEXT("CreateItemFromSyncData: Outer is null!"));
+        return;
     }
+
+    
+    UObject* LoadedAsset = SyncData.DataAssetPath.TryLoad();
+    
+    if (!LoadedAsset)
+    {
+        UE_LOG(LogInventoryStorage, Error, TEXT("CreateItemFromSyncData: Failed to load asset %s"),
+               *SyncData.DataAssetPath.ToString());
+        return;
+    }
+
+    
+    if (!LoadedAsset->GetClass()->ImplementsInterface(UItemDataProvider::StaticClass()))
+    {
+        UE_LOG(LogInventoryStorage, Error, TEXT("CreateItemFromSyncData: Asset %s does not implement IItemDataProvider"),
+               *SyncData.DataAssetPath.ToString());
+        return;
+    }
+
     
     UItemBase* NewItem = NewObject<UItemBase>(Outer, UItemBase::StaticClass());
     if (!NewItem)
     {
-        return nullptr;
+        UE_LOG(LogInventoryStorage, Error, TEXT("CreateItemFromSyncData: Failed to create ItemBase"));
+        return;
     }
     
-    NewItem->Initialize(SyncData.ItemDef);
-    NewItem->bIsRotated = SyncData.bIsRotated;
-    NewItem->ItemGuid = SyncData.ItemGuid;
     
-    return NewItem;
+    NewItem->ItemGuid = SyncData.ItemGuid;
+    NewItem->ItemDataProvider = LoadedAsset;
+    NewItem->bIsRotated = SyncData.bIsRotated;
+    NewItem->SpecificData = SyncData.SpecificData;
+    
+    
+    PlaceItemInGrid(NewItem, SyncData.TopLeftIndex);
+    
+    UE_LOG(LogInventoryStorage, Log, TEXT("✅ CreateItemFromSyncData: Created and placed %s at index %d"),
+           *NewItem->DisplayName(), SyncData.TopLeftIndex);
 }
 
 void UInventoryStorage::PlaceItemInGrid(UItemBase* Item, int32 TopLeftIndex)
@@ -252,7 +256,7 @@ void UInventoryStorage::PlaceItemInGrid(UItemBase* Item, int32 TopLeftIndex)
     const FIntPoint CurrentDims = Item->GetCurrentDimensions();
     const FIntPoint TopLeft = GridManager->IndexToTile(TopLeftIndex);
     
-    // 아이템이 차지하는 모든 타일에 배치
+    
     for (int32 y = 0; y < CurrentDims.Y; ++y)
     {
         for (int32 x = 0; x < CurrentDims.X; ++x)

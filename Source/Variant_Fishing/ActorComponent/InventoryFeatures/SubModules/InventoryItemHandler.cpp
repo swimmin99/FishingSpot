@@ -2,9 +2,9 @@
 
 
 
-// ============================================
-// InventoryItemHandler.cpp
-// ============================================
+
+
+
 #include "InventoryItemHandler.h"
 #include "InventoryGridManager.h"
 #include "InventoryStorage.h"
@@ -50,14 +50,14 @@ bool UInventoryItemHandler::TryAddItem(UItemBase* Item, int32& OutTopLeftIndex)
            *GridManager->TileToString(CurrentDims),
            Item->GetIsRotated() ? TEXT("Yes") : TEXT("No"));
     
-    // Find first available slot
+    
     if (!Validator->FindFirstAvailableSlot(Item, OutTopLeftIndex))
     {
         UE_LOG(LogInventoryHandler, Warning, TEXT("TryAddItem: No room for Item=%s"), *Item->GetName());
         return false;
     }
     
-    // Place the item
+    
     PlaceItemInGrid(Item, OutTopLeftIndex);
     
     UE_LOG(LogInventoryHandler, Log, TEXT("TryAddItem: Successfully added at index %d (%s)"),
@@ -88,14 +88,14 @@ bool UInventoryItemHandler::AddItemAt(UItemBase* Item, int32 TopLeftIndex)
     
     const FIntPoint TopLeftTile = GridManager->IndexToTile(TopLeftIndex);
     
-    // Validate placement
+    
     if (!Validator->CanPlaceItemAt(Item, TopLeftTile, nullptr))
     {
         UE_LOG(LogInventoryHandler, Warning, TEXT("AddItemAt: Cannot place at index %d"), TopLeftIndex);
         return false;
     }
     
-    // Place the item
+    
     PlaceItemInGrid(Item, TopLeftIndex);
     
     UE_LOG(LogInventoryHandler, Log, TEXT("AddItemAt: Successfully added at index %d"), TopLeftIndex);
@@ -117,7 +117,7 @@ bool UInventoryItemHandler::RemoveItem(UItemBase* Item)
         return false;
     }
     
-    // Check if item exists
+    
     bool bFound = false;
     const TArray<UItemBase*>& Items = Storage->GetItemsArray();
     
@@ -136,7 +136,7 @@ bool UInventoryItemHandler::RemoveItem(UItemBase* Item)
         return false;
     }
     
-    // Clear the item
+    
     ClearItemFromGrid(Item);
     
     UE_LOG(LogInventoryHandler, Log, TEXT("RemoveItem: Removed %s"), *Item->GetName());
@@ -155,10 +155,10 @@ bool UInventoryItemHandler::MoveItem(UItemBase* Item, FIntPoint NewTopLeftTile)
     UE_LOG(LogInventoryHandler, Log, TEXT("MoveItem: Moving %s to %s"),
            *Item->GetName(), *GridManager->TileToString(NewTopLeftTile));
     
-    // Clear from old position
+    
     ClearItemFromGrid(Item);
     
-    // Place at new position
+    
     const int32 NewIndex = GridManager->TileToIndex(NewTopLeftTile);
     PlaceItemInGrid(Item, NewIndex);
     
@@ -183,7 +183,7 @@ void UInventoryItemHandler::PlaceItemInGrid(UItemBase* Item, int32 TopLeftIndex)
            *GridManager->TileToString(TopLeft),
            *GridManager->TileToString(CurrentDims));
     
-    // Fill all tiles occupied by this item
+    
     for (int32 y = 0; y < CurrentDims.Y; ++y)
     {
         for (int32 x = 0; x < CurrentDims.X; ++x)

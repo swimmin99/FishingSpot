@@ -3,11 +3,14 @@
 #include "Blueprint/UserWidget.h"
 #include "UHUDWidget.generated.h"
 
+class UBaseButtonWidget;
 class UCanvasPanel;
 class UTextBlock;
 class UButton;
 class UBorder;
 class UWidget;
+class UVerticalBox;
+class UItemAcquiredBannerWidget;
 
 UCLASS()
 class FISHING_API UHUDWidget : public UUserWidget
@@ -43,6 +46,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="HUD")
 	void RefreshTime();
 
+	UFUNCTION(BlueprintCallable, Category="HUD")
+	void SetPlayerName(FString PlayerName);
+
 private:
 	UFUNCTION()
 	void OnClickSettings();
@@ -59,7 +65,9 @@ public:
 	UPROPERTY(meta=(BindWidget))
 	UTextBlock* TimeText = nullptr;
 	UPROPERTY(meta=(BindWidget))
-	UButton* SettingsButton = nullptr;
+	UTextBlock* PlayerNameLabel = nullptr;
+	UPROPERTY(meta=(BindWidget))
+	UBaseButtonWidget* SettingsButton = nullptr;
 	UPROPERTY(meta=(BindWidget))
 	UBorder* RightSection = nullptr;
 	UPROPERTY(meta=(BindWidget))
@@ -67,5 +75,17 @@ public:
 	UPROPERTY(meta=(BindWidget))
 	UCanvasPanel* WindowSection = nullptr;
 	UPROPERTY(meta=(BindWidget))
-	UButton* CloseButton = nullptr;
+	UBaseButtonWidget* CloseButton = nullptr;
+	UPROPERTY(meta=(BindWidget))
+	UVerticalBox* NoticeVerticalBox = nullptr;
+
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Banner")
+	TSubclassOf<UItemAcquiredBannerWidget> BannerWidgetClass;
+
+	UPROPERTY()
+	UItemAcquiredBannerWidget* ItemBanner;
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void ShowItemAcquiredBanner(UItemBase* Item);
 };

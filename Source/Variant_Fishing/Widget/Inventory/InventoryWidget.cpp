@@ -1,16 +1,21 @@
 #include "Variant_Fishing/Widget/Inventory/InventoryWidget.h"
 
+#include "CategoryFilterButton.h"
 #include "InventoryGridWidget.h"
 #include "Variant_Fishing/Data/ItemDragOperation.h"
 #include "Blueprint/DragDropOperation.h"
-#include "InventoryDescriptionWidget.h"
+#include "InventoryPortrait.h"
 #include "Components/TextBlock.h"
-#include "Variant_Fishing/Data/ItemBase.h"
 #include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
+#include "Fishing.h"
+#include "Components/HorizontalBox.h"
+#include "Components/VerticalBox.h"
+#include "Variant_Fishing/Data/ItemBase.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogInventoryWidget, Log, All);
 
-void UInventoryWidget::InitializeWidget(UInventoryComponent* InInventoryComponent)
+void UInventoryWidget::InitializeWidget(UInventoryComponent* InInventoryComponent, 
+										AInteractableCharacter* InInteractableCharacter, 
+										UMaterialInstanceDynamic* PortraitMaterial)
 {
 	if (!InInventoryComponent)
 	{
@@ -25,14 +30,100 @@ void UInventoryWidget::InitializeWidget(UInventoryComponent* InInventoryComponen
 	}
 
 	UE_LOG(LogInventoryWidget, Log, TEXT("InitializeWidget: Connecting to InventoryComponent from %s"),
-	       InInventoryComponent->GetOwner() ? *InInventoryComponent->GetOwner()->GetName() : TEXT("Unknown"));
+		   InInventoryComponent->GetOwner() ? *InInventoryComponent->GetOwner()->GetName() : TEXT("Unknown"));
 
 	ConnectedInventoryComponent = InInventoryComponent;
-
+	ConnectedCharacter = InInteractableCharacter;
+	
 	InventoryGridWidget->InitializeWidget(InInventoryComponent);
-	ItemDescriptionWidget->InitializeWidget(InInventoryComponent);
+	InventoryPortrait->InitializeWidget(InInteractableCharacter, PortraitMaterial);
+	
+	
+	CreateCategoryFilterButtons();
+	
 	UE_LOG(LogInventoryWidget, Log, TEXT("InitializeWidget: Successfully connected"));
 }
+
+void UInventoryWidget::CreateCategoryFilterButtons()
+{
+	if (!CategoryFilterContainer || !CategoryFilterButtonClass)
+	{
+		return;
+	}
+
+	CategoryFilterContainer->ClearChildren();
+	CategoryFilterButtons.Empty();
+
+	TArray<EItemCategory> AllowedCategories = ConnectedInventoryComponent->GetAllowedCategoriesArray();
+
+	for (EItemCategory Category : AllowedCategories)
+	{
+		
+		UCategoryFilterButton* FilterButton = CreateWidget<UCategoryFilterButton>(
+			GetWorld(), 
+			CategoryFilterButtonClass
+		);
+
+		if (!FilterButton)
+		{
+			continue;
+		}
+
+		
+		FString ButtonID = StaticEnum<EItemCategory>()->GetNameStringByValue((int64)Category);
+		FText DisplayText = GetCategoryDisplayName(Category);
+		bool bIsSelected = (Category == EItemCategory::All);
+
+		FilterButton->InitializeButton(ButtonID, DisplayText, bIsSelected);
+
+		
+		FilterButton->OnFilterSelected.AddDynamic(this, &UInventoryWidget::OnCategoryFilterSelected);
+
+		CategoryFilterContainer->AddChild(FilterButton);
+		CategoryFilterButtons.Add(FilterButton);
+	}
+}
+
+void UInventoryWidget::OnCategoryFilterSelected(FString ButtonID)
+{
+	
+	int64 EnumValue = StaticEnum<EItemCategory>()->GetValueByNameString(ButtonID);
+	EItemCategory SelectedCategory = static_cast<EItemCategory>(EnumValue);
+
+	CurrentSelectedCategory = SelectedCategory;
+
+	
+	for (UCategoryFilterButton* Button : CategoryFilterButtons)
+	{
+		if (Button)
+		{
+			Button->SetSelected(Button->GetButtonID() == ButtonID);
+		}
+	}
+
+	
+	if (InventoryGridWidget)
+	{
+		InventoryGridWidget->SetCategoryFilter(SelectedCategory);
+	}
+}
+
+FText UInventoryWidget::GetCategoryDisplayName(EItemCategory Category) const
+{
+	switch (Category)
+	{
+	case EItemCategory::All:        return FText::FromString(TEXT("All"));
+	case EItemCategory::Fish:       return FText::FromString(TEXT("ðŸŸ Fish"));
+	case EItemCategory::Equipment:  return FText::FromString(TEXT("âš”ï¸ Equip"));
+	case EItemCategory::Consumable: return FText::FromString(TEXT("ðŸŽ Consum"));
+	case EItemCategory::Material:   return FText::FromString(TEXT("ðŸªµ Material"));
+	case EItemCategory::Quest:      return FText::FromString(TEXT("ðŸ“œ Quest"));
+	case EItemCategory::Misc:       return FText::FromString(TEXT("ðŸ“¦ Misc"));
+	default:                        return FText::FromString(TEXT("???"));
+	}
+}
+
+
 
 void UInventoryWidget::SetLabel(const FText& InText)
 {
@@ -51,6 +142,7 @@ void UInventoryWidget::SetFocusGridWidget()
 	InventoryGridWidget->SetUserFocus(GetOwningPlayer());
 }
 
+
 void UInventoryWidget::RefreshGrid()
 {
 	if (!InventoryGridWidget)
@@ -59,24 +151,6 @@ void UInventoryWidget::RefreshGrid()
 		return;
 	}
 	InventoryGridWidget->Refresh();
-}
-
-void UInventoryWidget::UpdateDescription(UItemBase* TargetItem)
-{
-	if (!ItemDescriptionWidget)
-	{
-		return;
-	}
-	ItemDescriptionWidget->UpdateContent(TargetItem);
-}
-
-void UInventoryWidget::ClearDescription()
-{
-	if (!ItemDescriptionWidget)
-	{
-		return;
-	}
-	ItemDescriptionWidget->ClearContent();
 }
 
 void UInventoryWidget::NativeConstruct()

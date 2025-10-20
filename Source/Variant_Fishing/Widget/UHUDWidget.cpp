@@ -1,11 +1,15 @@
 #include "UHUDWidget.h"
 
+#include "BaseButtonWidget.h"
 #include "FishingPlayerController.h"
+#include "FishingPlayerState.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 #include "Components/Border.h"
 #include "InteractableCharacter.h"
 #include "Components/CanvasPanel.h"
+#include "Components/VerticalBox.h"
+#include "Inventory/ItemAcquiredBannerWidget.h"
 
 void UHUDWidget::NativeConstruct()
 {
@@ -13,17 +17,30 @@ void UHUDWidget::NativeConstruct()
 
 	if (SettingsButton)
 	{
-		SettingsButton->OnClicked.AddDynamic(this, &UHUDWidget::OnClickSettings);
+		SettingsButton->GetBaseButton()->OnClicked.AddDynamic(this, &UHUDWidget::OnClickSettings);
+		SettingsButton->SetText(FText::FromString(FString(TEXT("Settings"))));
 	}
 
 	if (CloseButton)
 	{
-		CloseButton->OnClicked.AddDynamic(this, &UHUDWidget::OnClickClose);
+		CloseButton->GetBaseButton()->OnClicked.AddDynamic(this, &UHUDWidget::OnClickClose);
+		CloseButton->SetText(FText::FromString(FString(TEXT("Close"))));
 	}
 
 	if (AInteractableCharacter* Char = GetOwningPlayerPawn<AInteractableCharacter>())
 	{
 		Char->OnGoldChanged.AddUniqueDynamic(this, &UHUDWidget::HandleGoldChanged);
+	}
+
+	if (BannerWidgetClass && !ItemBanner)
+	{
+		ItemBanner = CreateWidget<UItemAcquiredBannerWidget>(GetOwningPlayer(), BannerWidgetClass);
+		if (ItemBanner)
+		{
+			NoticeVerticalBox->AddChild(ItemBanner);
+            
+			UE_LOG(LogTemp, Log, TEXT("HUDWidget: ItemBanner created"));
+		}
 	}
 
 	HideCloseSection();
@@ -40,6 +57,7 @@ void UHUDWidget::NativeDestruct()
 	}
 	Super::NativeDestruct();
 }
+
 
 void UHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
@@ -146,6 +164,14 @@ void UHUDWidget::RefreshTime()
 	}
 }
 
+void UHUDWidget::SetPlayerName(FString PlayerName)
+{
+	if (PlayerNameLabel)
+	{
+		PlayerNameLabel->SetText(FText::FromString(PlayerName));
+	}
+}
+
 void UHUDWidget::OnClickSettings()
 {
 	UE_LOG(LogTemp, Log, TEXT("Settings button clicked"));
@@ -163,7 +189,6 @@ void UHUDWidget::OnClickClose()
 	{
 		PC->CloseShopUI();
 	}
-
 	else
 	{
 		PC->CloseInventory();
@@ -175,4 +200,12 @@ void UHUDWidget::OnClickClose()
 void UHUDWidget::HandleGoldChanged(int32)
 {
 	RefreshMoney();
+}
+
+void UHUDWidget::ShowItemAcquiredBanner(UItemBase* Item)
+{
+	if (ItemBanner)
+	{
+		ItemBanner->ShowBanner(Item);
+	}
 }

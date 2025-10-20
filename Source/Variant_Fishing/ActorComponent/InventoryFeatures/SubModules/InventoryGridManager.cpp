@@ -2,18 +2,17 @@
 
 
 
-// ============================================
-// InventoryGridManager.cpp
-// ============================================
+
+
+
 #include "InventoryGridManager.h"
 
 #include "Fishing.h"
 
-void UInventoryGridManager::Initialize(int32 InColumns, int32 InRows, float InTileSize)
+void UInventoryGridManager::Initialize(int32 InColumns, int32 InRows)
 {
     Columns = FMath::Max(1, InColumns);
     Rows = FMath::Max(1, InRows);
-    TileSize = FMath::Max(1.f, InTileSize);
     
     UE_LOG(LogInventoryGrid, Log, TEXT("Initialize: Grid %dx%d, TileSize=%.1f"), 
            Columns, Rows, TileSize);
@@ -27,6 +26,7 @@ void UInventoryGridManager::UpdateDimensions(int32 InColumns, int32 InRows)
     UE_LOG(LogInventoryGrid, Log, TEXT("UpdateDimensions: Grid now %dx%d"), 
            Columns, Rows);
 }
+
 
 FIntPoint UInventoryGridManager::IndexToTile(int32 Index) const
 {

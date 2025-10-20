@@ -1,6 +1,6 @@
-﻿// ============================================
-// InventoryGridManager.h
-// ============================================
+﻿
+
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -8,17 +8,16 @@
 #include "InventoryGridManager.generated.h"
 
 
-/**
- * Manages grid layout, dimensions, and coordinate conversions
- */
+
 UCLASS()
 class FISHING_API UInventoryGridManager : public UObject
 {
     GENERATED_BODY()
 
 public:
-    void Initialize(int32 InColumns, int32 InRows, float InTileSize);
+    void Initialize(int32 InColumns, int32 InRows);
     void UpdateDimensions(int32 InColumns, int32 InRows);
+    bool IsPlayerInventory();
     
     FIntPoint IndexToTile(int32 Index) const;
     int32 TileToIndex(FIntPoint Tile) const;

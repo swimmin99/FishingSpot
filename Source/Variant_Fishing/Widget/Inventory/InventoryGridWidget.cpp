@@ -23,11 +23,25 @@ void UInventoryGridWidget::InitializeWidget(UInventoryComponent* InInventoryComp
 	ConstructBaseBackground();
 }
 
+void UInventoryGridWidget::SetCategoryFilter(EItemCategory NewFilter)
+{
+	if (CurrentFilter == NewFilter)
+	{
+		return; 
+	}
+
+	CurrentFilter = NewFilter;
+	Refresh(); 
+	
+	UE_LOG(LogInventory, Log, TEXT("SetCategoryFilter: Changed to %d"), static_cast<int32>(NewFilter));
+}
+
+
+
 void UInventoryGridWidget::ConstructBaseBackground()
 {
 	Colums = InventoryComponent->Columns;
 	Rows = InventoryComponent->Rows;
-	TileSize = InventoryComponent->TileSize;
 
 	float NewWidth = Colums * TileSize;
 	float NewHeight = Rows * TileSize;
@@ -82,13 +96,12 @@ bool UInventoryGridWidget::NativeOnDragOver(const FGeometry& InGeometry, const F
 
 	const FGeometry& G = GridBorder->GetCachedGeometry();
 	const FVector2D LocalPos = G.AbsoluteToLocal(E.GetScreenSpacePosition());
-	const float TileSz = InventoryComponent->TileSize;
 
 	const FIntPoint CurrentDims = Op->Item->GetCurrentDimensions();
 
 	const FIntPoint MouseTile(
-		FMath::FloorToInt(LocalPos.X / TileSz),
-		FMath::FloorToInt(LocalPos.Y / TileSz)
+		FMath::FloorToInt(LocalPos.X / TileSize),
+		FMath::FloorToInt(LocalPos.Y / TileSize)
 	);
 
 	const FIntPoint HalfDims(CurrentDims.X / 2, CurrentDims.Y / 2);
@@ -109,11 +122,22 @@ FMousePositionInTile UInventoryGridWidget::MousePositionInTileResult(FVector2D M
 		return MousePositionInTile;
 	}
 
-	MousePositionInTile.Right = fmod(MousePosition.X, InventoryComponent->TileSize) > (InventoryComponent->TileSize /
+	MousePositionInTile.Right = fmod(MousePosition.X, TileSize) > (TileSize /
 		2);
-	MousePositionInTile.Down = fmod(MousePosition.Y, InventoryComponent->TileSize) > (InventoryComponent->TileSize / 2);
+	MousePositionInTile.Down = fmod(MousePosition.Y, TileSize) > (TileSize / 2);
 
 	return MousePositionInTile;
+}
+
+
+bool UInventoryGridWidget::IsPlayerInventory()
+{
+	if (!InventoryComponent)
+	{
+		return false;
+	}
+	AActor* Owner = InventoryComponent->GetOwner();
+	return Owner && Owner->IsA<AFishingCharacter>();
 }
 
 void UInventoryGridWidget::CreateLineSegments()
@@ -205,83 +229,123 @@ void UInventoryGridWidget::Clean()
 
 void UInventoryGridWidget::Refresh()
 {
-	if (!InventoryComponent)
-	{
-		UE_LOG(LogInventory, Warning, TEXT("Refresh: InventoryComponent null"));
-		return;
-	}
+    if (!InventoryComponent)
+    {
+        UE_LOG(LogInventory, Warning, TEXT("Refresh: InventoryComponent null"));
+        return;
+    }
 
-	Clean();
+    Clean();
 
-	TArray<UItemBase*> Keys;
-	TMap<UItemBase*, FIntPoint> Map = InventoryComponent->GetAllItems();
-	Map.GetKeys(Keys);
+    TArray<UItemBase*> Keys;
+    TMap<UItemBase*, FIntPoint> Map = InventoryComponent->GetAllItems();
+    Map.GetKeys(Keys);
 
-	UE_LOG(LogInventory, Log, TEXT("Refresh: %d items in inventory"), Keys.Num());
+    UE_LOG(LogInventory, Log, TEXT("Refresh: %d items in inventory (Filter: %d)"), 
+           Keys.Num(), static_cast<int32>(CurrentFilter));
 
-	if (!InventoryComponent->ItemWidgetClass)
-	{
-		UE_LOG(LogInventory, Warning, TEXT("Refresh: No ItemWidgetClass"));
-		return;
-	}
+    if (!InventoryComponent->ItemWidgetClass)
+    {
+        UE_LOG(LogInventory, Warning, TEXT("Refresh: No ItemWidgetClass"));
+        return;
+    }
 
-	for (UItemBase* AddedItem : Keys)
-	{
-		if (!AddedItem)
-		{
-			UE_LOG(LogInventory, Warning, TEXT("Refresh: Null item in inventory"));
-			continue;
-		}
+    int32 FilteredOutCount = 0;
 
-		UUserWidget* ItemWidget = CreateWidget<UUserWidget>(GetWorld(), InventoryComponent->ItemWidgetClass);
-		if (!ItemWidget)
-		{
-			UE_LOG(LogInventory, Warning, TEXT("Refresh: Failed to create ItemWidget for %s"), *AddedItem->GetName());
-			continue;
-		}
+    
+    for (UItemBase* AddedItem : Keys)
+    {
+        if (!AddedItem)
+        {
+            UE_LOG(LogInventory, Warning, TEXT("Refresh: Null item in inventory"));
+            continue;
+        }
 
-		CreatedItemWidget.Add(ItemWidget);
-		ItemWidget->SetOwningPlayer(GetOwningPlayer());
+        
+        bool bIsFilteredOut = false;
+        if (CurrentFilter != EItemCategory::All)
+        {
+            
+            if (!AddedItem->ItemDataProvider)
+            {
+                bIsFilteredOut = true;
+                FilteredOutCount++;
+                UE_LOG(LogInventory, Verbose, TEXT("Refresh: Item %s has no ItemDataProvider, marked as filtered out"), 
+                       *AddedItem->DisplayName());
+            }
+            else
+            {
+                
+                EItemCategory ItemCategory = AddedItem->GetCategory();
+                
+                if (ItemCategory != CurrentFilter)
+                {
+                    bIsFilteredOut = true;
+                    FilteredOutCount++;
+                    UE_LOG(LogInventory, Verbose, TEXT("Refresh: Item %s marked as filtered out (Category mismatch)"), 
+                           *AddedItem->DisplayName());
+                }
+            }
+        }
 
-		UItemWidget* IW = Cast<UItemWidget>(ItemWidget);
-		if (!IW)
-		{
-			UE_LOG(LogInventory, Warning, TEXT("Refresh: ItemWidget is not of type UItemWidget for %s"),
-			       *AddedItem->GetName());
-			continue;
-		}
+        
+        UUserWidget* ItemWidget = CreateWidget<UUserWidget>(GetWorld(), InventoryComponent->ItemWidgetClass);
+        if (!ItemWidget)
+        {
+            UE_LOG(LogInventory, Warning, TEXT("Refresh: Failed to create ItemWidget for %s"), 
+                   *AddedItem->DisplayName());
+            continue;
+        }
 
-		IW->SetItemWidget(AddedItem, InventoryComponent);
+        CreatedItemWidget.Add(ItemWidget);
+        ItemWidget->SetOwningPlayer(GetOwningPlayer());
 
-		const FIntPoint Tile = Map[AddedItem];
-		const float X = Tile.X * InventoryComponent->TileSize;
-		const float Y = Tile.Y * InventoryComponent->TileSize;
+        UItemWidget* IW = Cast<UItemWidget>(ItemWidget);
+        if (!IW)
+        {
+            UE_LOG(LogInventory, Warning, TEXT("Refresh: ItemWidget is not of type UItemWidget for %s"),
+                   *AddedItem->DisplayName());
+            continue;
+        }
 
-		if (!GridCanvasPanel)
-		{
-			UE_LOG(LogInventory, Warning, TEXT("Refresh: GridCanvasPanel is null"));
-			continue;
-		}
+        IW->SetItemWidget(AddedItem, InventoryComponent, TileSize);
+        
+        
+        IW->SetFilteredOutState(bIsFilteredOut);
 
-		UPanelSlot* MySlot = GridCanvasPanel->AddChild(ItemWidget);
-		UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(MySlot);
-		if (CanvasSlot)
-		{
-			CanvasSlot->SetAutoSize(true);
-			CanvasSlot->SetPosition(FVector2D(X, Y));
+        const FIntPoint Tile = Map[AddedItem];
+        const float X = Tile.X * TileSize;
+        const float Y = Tile.Y * TileSize;
 
-			UE_LOG(LogInventory, Log, TEXT("Refresh: Placed %s at (%.1f, %.1f), Rotated=%s"),
-			       *AddedItem->GetName(), X, Y,
-			       AddedItem->GetIsRotated() ? TEXT("Yes") : TEXT("No"));
-		}
-		else
-		{
-			UE_LOG(LogInventory, Warning, TEXT("Refresh: CanvasSlot invalid for %s"), *AddedItem->GetName());
-		}
-	}
+        if (!GridCanvasPanel)
+        {
+            UE_LOG(LogInventory, Warning, TEXT("Refresh: GridCanvasPanel is null"));
+            continue;
+        }
 
-	this->InvalidateLayoutAndVolatility();
-	this->ForceLayoutPrepass();
+        UPanelSlot* MySlot = GridCanvasPanel->AddChild(ItemWidget);
+        UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(MySlot);
+        if (CanvasSlot)
+        {
+            CanvasSlot->SetAutoSize(true);
+            CanvasSlot->SetPosition(FVector2D(X, Y));
+
+            UE_LOG(LogInventory, Log, TEXT("Refresh: Placed %s at (%.1f, %.1f), FilteredOut=%s"),
+                   *AddedItem->DisplayName(), X, Y,
+                   bIsFilteredOut ? TEXT("Yes") : TEXT("No"));
+        }
+        else
+        {
+            UE_LOG(LogInventory, Warning, TEXT("Refresh: CanvasSlot invalid for %s"), 
+                   *AddedItem->DisplayName());
+        }
+    }
+
+    UE_LOG(LogInventory, Log, TEXT("Refresh: Displayed %d items (%d filtered out)"), 
+           Keys.Num(), FilteredOutCount);
+
+    this->InvalidateLayoutAndVolatility();
+    this->ForceLayoutPrepass();
 }
 
 void UInventoryGridWidget::NativeOnDragEnter(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent,
@@ -305,7 +369,7 @@ void UInventoryGridWidget::NativeOnDragEnter(const FGeometry& InGeometry, const 
 
 	const FGeometry& G = GridBorder->GetCachedGeometry();
 	const FVector2D LocalPos = G.AbsoluteToLocal(InDragDropEvent.GetScreenSpacePosition());
-	const float TileSz = InventoryComponent->TileSize;
+	const float TileSz = TileSize;
 
 	const FIntPoint CurrentDims = Op->Item->GetCurrentDimensions();
 	const FIntPoint MouseTile(
@@ -335,90 +399,102 @@ void UInventoryGridWidget::NativeOnDragLeave(const FDragDropEvent& InDragDropEve
 bool UInventoryGridWidget::NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent,
                                         UDragDropOperation* InOperation)
 {
-	UE_LOG(LogInventory, Warning, TEXT("==== [InventoryGridWidget::OnDrop] START ===="));
 
-	auto* Op = Cast<UItemDragOperation>(InOperation);
-	if (!Op || !Op->Item || !InventoryComponent)
-	{
-		UE_LOG(LogInventory, Warning, TEXT("OnDrop -> Invalid operation"));
-		return false;
-	}
+    auto* Op = Cast<UItemDragOperation>(InOperation);
+    if (!Op || !Op->Item || !InventoryComponent)
+    {
+        UE_LOG(LogInventory, Warning, TEXT("OnDrop -> Invalid operation"));
+        ActiveOp = nullptr;
+        DraggedItemRef = nullptr;
+        return false;
+    }
 
-	UItemBase* Item = Op->Item;
-	UInventoryComponent* SourceInv = Op->SourceInventoryComponent;
-	UInventoryComponent* TargetInv = this->InventoryComponent;
+    UItemBase* Item = Op->Item;
+    UInventoryComponent* SourceInv = Op->SourceInventoryComponent;
+    UInventoryComponent* TargetInv = this->InventoryComponent;
 
-	if (!SourceInv)
-	{
-		UE_LOG(LogInventory, Error, TEXT("OnDrop -> SourceInventoryComponent is null!"));
-		return false;
-	}
+    if (!SourceInv)
+    {
+        UE_LOG(LogInventory, Error, TEXT("OnDrop -> SourceInventoryComponent is null!"));
+        ActiveOp = nullptr;
+        DraggedItemRef = nullptr;
+        return false;
+    }
 
-	const bool bCanPlace = TargetInv->IsRoomAvailableAt(
-		Item,
-		DraggedItemTopLeftTile,
-		(SourceInv == TargetInv) ? Item : nullptr
-	);
+    
+    if (SourceInv != TargetInv)
+    {
+        if (!TargetInv->IsItemCategoryAllowed(Item))
+        {
+            UE_LOG(LogInventory, Warning, TEXT("OnDrop -> Item category not allowed in target inventory"));
+            
+            if (GEngine)
+            {
+                GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, 
+                    TEXT("This inventory doesn't accept this item type!"));
+            }
+            
+            ActiveOp = nullptr;
+            DraggedItemRef = nullptr;
+            return false;
+        }
+    }
 
-	UE_LOG(LogInventory, Warning, TEXT("OnDrop -> SourceInv=%s, TargetInv=%s, CanPlace=%s, Tile=(%d,%d)"),
-	       *SourceInv->GetOwner()->GetName(),
-	       *TargetInv->GetOwner()->GetName(),
-	       bCanPlace ? TEXT("TRUE") : TEXT("FALSE"),
-	       DraggedItemTopLeftTile.X, DraggedItemTopLeftTile.Y);
+    const bool bCanPlace = TargetInv->IsRoomAvailableAt(
+        Item,
+        DraggedItemTopLeftTile,
+        (SourceInv == TargetInv) ? Item : nullptr
+    );
 
-	if (!bCanPlace)
-	{
-		UE_LOG(LogInventory, Warning, TEXT("OnDrop -> Cannot place item, cancelling drop"));
+    if (!bCanPlace)
+    {
+        UE_LOG(LogInventory, Warning, TEXT("OnDrop -> Cannot place item, cancelling drop"));
+        ActiveOp = nullptr;
+        DraggedItemRef = nullptr;
+        return false;
+    }
 
-		ActiveOp = nullptr;
-		DraggedItemRef = nullptr;
-		return false;
-	}
+    
+    if (TargetInv->GetOwnerRole() == ROLE_Authority)
+    {
+        
+        UE_LOG(LogInventory, Log, TEXT("OnDrop -> AUTHORITY: Processing locally"));
+        
+        if (SourceInv == TargetInv)
+        {
+            
+            TargetInv->RemoveItem(Item);
+            const int32 TargetIndex = TargetInv->TileToIndex(DraggedItemTopLeftTile);
+            TargetInv->AddItemAt(Item, TargetIndex);
+        }
+        else
+        {
+            
+            const int32 TargetIndex = TargetInv->TileToIndex(DraggedItemTopLeftTile);
+            SourceInv->RemoveItem(Item);
+            TargetInv->AddItemAt(Item, TargetIndex);
+        }
+    }
+    else
+    {
+        
+        UE_LOG(LogInventory, Log, TEXT("OnDrop -> CLIENT: Requesting server RPC"));
+        
+        if (SourceInv == TargetInv)
+        {
+            
+        }
+        else
+        {
+            
+        }
+    }
 
-	if (SourceInv == TargetInv)
-	{
-		UE_LOG(LogInventory, Log, TEXT("OnDrop -> Same inventory move"));
+    ActiveOp = nullptr;
+    DraggedItemRef = nullptr;
 
-		TargetInv->RemoveItem(Item);
-		const int32 TargetIndex = TargetInv->TileToIndex(DraggedItemTopLeftTile);
-		TargetInv->AddItemAt(Item, TargetIndex);
-		TargetInv->RefreshAllItems();
-		Refresh();
-
-		TargetInv->Server_MoveItem(Item, DraggedItemTopLeftTile);
-
-		UE_LOG(LogInventory, Warning, TEXT("OnDrop -> Moved within inventory at TL=(%d,%d) Index=%d"),
-		       DraggedItemTopLeftTile.X, DraggedItemTopLeftTile.Y, TargetIndex);
-	}
-
-	else
-	{
-		UE_LOG(LogInventory, Log, TEXT("OnDrop -> Cross-inventory transfer"));
-
-		const int32 TargetIndex = TargetInv->TileToIndex(DraggedItemTopLeftTile);
-
-		SourceInv->RemoveItem(Item);
-		SourceInv->RefreshAllItems();
-		Refresh();
-
-		TargetInv->AddItemAt(Item, TargetIndex);
-		TargetInv->RefreshAllItems();
-		Refresh();
-
-		SourceInv->RemoveItemForServer(Item);
-		TargetInv->AddItemAtForServer(Item, TargetIndex);
-
-		UE_LOG(LogInventory, Warning, TEXT("OnDrop -> Transferred from %s to %s at TL=(%d,%d) Index=%d"),
-		       *SourceInv->GetOwner()->GetName(),
-		       *TargetInv->GetOwner()->GetName(),
-		       DraggedItemTopLeftTile.X, DraggedItemTopLeftTile.Y, TargetIndex);
-	}
-
-	ActiveOp = nullptr;
-	DraggedItemRef = nullptr;
-
-	UE_LOG(LogInventory, Warning, TEXT("==== [InventoryGridWidget::OnDrop] END ===="));
-	return true;
+    UE_LOG(LogInventory, Warning, TEXT("==== [InventoryGridWidget::OnDrop] END ===="));
+    return true;
 }
 
 FReply UInventoryGridWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -466,7 +542,7 @@ FReply UInventoryGridWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry,
 		if (ActiveOp->GhostItemWidget)
 		{
 			UE_LOG(LogInventory, Warning, TEXT("NativeOnPreviewKeyDown -> Updating Ghost Visual"));
-			ActiveOp->GhostItemWidget->UpdateVisual();
+			ActiveOp->GhostItemWidget->UpdateVisual(TileSize);
 		}
 		InvalidateLayoutAndVolatility();
 		ForceLayoutPrepass();
@@ -476,3 +552,4 @@ FReply UInventoryGridWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry,
 
 	return Super::NativeOnPreviewKeyDown(InGeometry, InKeyEvent);
 }
+

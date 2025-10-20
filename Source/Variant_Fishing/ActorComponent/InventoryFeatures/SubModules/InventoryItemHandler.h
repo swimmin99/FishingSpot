@@ -1,6 +1,6 @@
-﻿// ============================================
-// InventoryItemHandler.h
-// ============================================
+﻿
+
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -12,9 +12,7 @@ class UInventoryPlacementValidator;
 class UItemBase;
 
 
-/**
- * Handles item operations: add, remove, move, place
- */
+
 UCLASS()
 class FISHING_API UInventoryItemHandler : public UObject
 {

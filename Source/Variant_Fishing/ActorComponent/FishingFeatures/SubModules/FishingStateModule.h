@@ -21,9 +21,7 @@ enum class EFishingState : uint8
 	Exit UMETA(DisplayName="Exit"),
 };
 
-/**
- * Handles fishing state transitions and state-related logic
- */
+
 UCLASS()
 class FISHING_API UFishingStateModule : public UObject
 {
@@ -33,17 +31,17 @@ class FISHING_API UFishingStateModule : public UObject
 public:
 	void Initialize(UFishingComponent* InOwner, AFishingCharacter* InCharacter);
 	
-	// State management
+	
 	EFishingState GetState() const { return FishState; }
 	static const TCHAR* StateToString(EFishingState State);
 	
-	// Fishing session
+	
 	void EnterFishing();
 	void ExitFishing();
 	bool IsFishing() const { return bIsFishing; }
 	void SetIsFishing(bool bFishing) { bIsFishing = bFishing; }
 	
-	// Movement lock
+	
 	void LockMovement(bool bLock);
 
 protected:

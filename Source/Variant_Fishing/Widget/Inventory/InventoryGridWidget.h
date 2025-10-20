@@ -4,8 +4,8 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/Border.h"
 #include "Components/CanvasPanel.h"
-#include "Fishing/Variant_Fishing/Data/InventoryDataStruct.h"
 #include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
+#include "Variant_Fishing/Interface/ItemDataProvider.h"
 #include "InventoryGridWidget.generated.h"
 
 class UItemDragOperation;
@@ -13,6 +13,37 @@ class UCanvasPanel;
 class UBorder;
 class UInventoryComponent;
 class UItemBase;
+
+USTRUCT(BlueprintType) 
+struct FLines
+{
+	GENERATED_BODY()
+
+public:
+	FLines(){};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Lines")
+	TArray<FVector2D> XLines;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Lines")
+	TArray<FVector2D> YLines;
+};
+
+USTRUCT(BlueprintType)
+struct FMousePositionInTile
+{
+	GENERATED_BODY()
+
+public:
+	FMousePositionInTile() : Right(false), Down(false)	{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouse Position")
+	bool Right;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouse Position")
+	bool Down;
+};
+
 
 UCLASS()
 class FISHING_API UInventoryGridWidget : public UUserWidget
@@ -23,8 +54,19 @@ public:
 	void Clean();
 	void Refresh();
 	void InitializeWidget(UInventoryComponent* InInventoryComponent);
+	void SetCategoryFilter(EItemCategory NewFilter);
+	bool IsPlayerInventory();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Grid")
+	float TileSize = 48.0f;
+	
 protected:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Filter")
+	EItemCategory CurrentFilter = EItemCategory::All;
+
+	
+	
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget), Category="UI")
 	UCanvasPanel* Canvas;
 
@@ -50,7 +92,6 @@ protected:
 
 	int32 Colums;
 	int32 Rows;
-	float TileSize;
 
 	FLines LineStructData;
 

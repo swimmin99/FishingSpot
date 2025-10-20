@@ -9,9 +9,7 @@ class USkeletalMeshComponent;
 class UStaticMeshComponent;
 class UFishingComponent;
 
-/**
- * Handles all fishing animation playback and fishing rod socket management
- */
+
 UCLASS()
 class FISHING_API UFishingAnimationModule : public UObject
 {
@@ -22,22 +20,22 @@ public:
 					USkeletalMeshComponent* InCharacterMesh,
 					UStaticMeshComponent* InFishingRod);
 	
-	// Animation playback
+	
 	void PlayMontageSection(FName SectionName);
 	void PlayWithHandPosition(FName SectionName, bool bPositionRotHand);
 	void StopMontage(float BlendOutTime = 0.2f);
 	
-	// Socket management
+	
 	void UpdateFishingRodSocket(FName DesiredSocket);
 	void AttachToIdleSocket();
 	void AttachToActiveSocket();
 	
-	// Configuration
+	
 	void SetMontage(UAnimMontage* InMontage) { FishingMontage = InMontage; }
 	void SetIdleSocket(FName InSocket) { IdleFishingSocket = InSocket; }
 	void SetActiveSocket(FName InSocket) { ActiveFishingSocket = InSocket; }
 	
-	// Getters
+	
 	FName GetCurrentSocket() const { return CurrentFishingRodSocket; }
 	UAnimMontage* GetMontage() const { return FishingMontage; }
 

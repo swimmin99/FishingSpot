@@ -1,4 +1,4 @@
-#include "Variant_Fishing/Data/ShopTransactionData.h"
+﻿#include "Variant_Fishing/Data/ShopTransactionData.h"
 
 #include "FishingCharacter.h"
 #include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
@@ -192,7 +192,8 @@ void UShopTransactionManager::CancelAll()
 		PendingItem.TargetInventory->RemoveItem(PendingItem.Item);
 
 		int32 OriginalIndex = PendingItem.SourceInventory->TileToIndex(PendingItem.OriginalTile);
-		PendingItem.SourceInventory->AddItemAt(PendingItem.Item, OriginalIndex);
+		PendingItem.SourceInventory->AddItemAt(PendingItem.Item,  OriginalIndex);
+		
 
 		UE_LOG(LogShopTransaction, Log, TEXT("CancelAll: Restored %s to original position"),
 		       *PendingItem.Item->GetName());

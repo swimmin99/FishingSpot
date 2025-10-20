@@ -1,7 +1,7 @@
 ﻿
-// ============================================
-// InventoryUIManager.h
-// ============================================
+
+
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -12,9 +12,7 @@ class UInventoryWidget;
 class UItemBase;
 
 
-/**
- * Manages UI widgets and visual updates
- */
+
 UCLASS()
 class FISHING_API UInventoryUIManager : public UObject
 {
@@ -23,12 +21,8 @@ class FISHING_API UInventoryUIManager : public UObject
 public:
 	void RegisterWidget(UInventoryWidget* Widget);
 	void UnregisterWidget();
-    
 	void RefreshGrid();
-	void UpdateDescription(UItemBase* Item);
-	void ClearDescription();
 	void SetFocusGridWidget();
-    
 	bool HasWidget() const { return InventoryWidget != nullptr; }
 	UInventoryWidget* GetWidget() const { return InventoryWidget; }
 

@@ -11,7 +11,9 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Variant_Fishing/Data/ItemBase.h"
 #include "Fishing.h"
+#include "TooltipSubsystem.h"
 #include "Variant_Fishing/ActorComponent/InventoryFeatures/InventoryComponent.h"
+#include "Variant_Fishing/Widget/ToolTipWidget.h"
 
 
 void UItemWidget::NativeConstruct()
@@ -20,8 +22,25 @@ void UItemWidget::NativeConstruct()
 	UE_LOG(LogInventory, Verbose, TEXT("NativeConstruct: UItemWidget constructed"));
 }
 
-void UItemWidget::SetItemWidget(UItemBase* ItemToAdd, UInventoryComponent* InOwnerInventoryComponent)
+void UItemWidget::SetFilteredOutState(bool bFiltered)
 {
+	bIsFilteredOut = bFiltered;
+    
+	if (bFiltered)
+	{
+		
+		SetRenderOpacity(0.5f);
+	}
+	else
+	{
+		
+		SetRenderOpacity(1.0f);
+	}
+}
+
+void UItemWidget::SetItemWidget(UItemBase* ItemToAdd, UInventoryComponent* InOwnerInventoryComponent, float InTileSize)
+{
+	TileSize = InTileSize;
 	if (!ItemToAdd || !InOwnerInventoryComponent)
 	{
 		UE_LOG(LogInventory, Warning, TEXT("SetItemWidget: nullptr param (ItemToAdd=%p, OwnerInv=%p)"),
@@ -56,11 +75,12 @@ void UItemWidget::SetItemWidget(UItemBase* ItemToAdd, UInventoryComponent* InOwn
 		UE_LOG(LogInventory, Warning, TEXT("SetItemWidget: Item has no icon material (%s)"), *Item->GetName());
 	}
 
-	UpdateVisual();
+	UpdateVisual(TileSize);
 }
 
-void UItemWidget::UpdateVisual()
+void UItemWidget::UpdateVisual(float InTileSize)
 {
+	TileSize = InTileSize;
 	if (!Item)
 	{
 		UE_LOG(LogInventory, Warning, TEXT("UpdateVisual: Item is nullptr"));
@@ -79,7 +99,6 @@ void UItemWidget::UpdateVisual()
 		return;
 	}
 
-	const float TileSize = OwnerInventoryComponent->TileSize;
 	const FIntPoint Dims = Item->GetCurrentDimensions();
 	Size = FVector2D(Dims.X * TileSize, Dims.Y * TileSize);
 
@@ -118,6 +137,11 @@ void UItemWidget::UpdateVisual()
 
 FReply UItemWidget::NativeOnMouseButtonDown(const FGeometry& Geo, const FPointerEvent& InMouseEvent)
 {
+	if (bIsFilteredOut)
+	{
+		return FReply::Handled();
+	}
+	
 	if (!OwnerInventoryComponent)
 	{
 		UE_LOG(LogInventory, Warning, TEXT("OnMouseButtonDown: OwnerInventoryComponent is nullptr"));
@@ -139,7 +163,10 @@ FReply UItemWidget::NativeOnMouseButtonDown(const FGeometry& Geo, const FPointer
 		UE_LOG(LogInventory, Verbose, TEXT("OnMouseButtonDown: InventoryGridWidget is nullptr (non-fatal)"));
 	}
 
-	OwnerInventoryComponent->UpdateDescription(Item);
+	if (UTooltipSubsystem* Sys = UTooltipSubsystem::Get(GetWorld()))
+	{
+		Sys->HideTooltip();
+	}
 	UE_LOG(LogInventory, Log, TEXT("OnMouseButtonDown: UpdateDescription called for %s"), *Item->GetName());
 
 	return FReply::Handled().DetectDrag(TakeWidget(), EKeys::LeftMouseButton);
@@ -151,12 +178,46 @@ void UItemWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointer
 
 	if (BackgroundBorder)
 	{
-		BackgroundBorder->SetBrushColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.2f));
+		BackgroundBorder->SetBrushColor(FLinearColor(0.f, 0.f, 0.f, 0.2f));
 	}
-	else
+
+	
+	if (APlayerController* PC = GetOwningPlayer())
 	{
-		UE_LOG(LogInventory, Verbose, TEXT("OnMouseEnter: BackgroundBorder is nullptr (non-fatal)"));
+		FVector2D MousePos;
+		PC->GetMousePosition(MousePos.X, MousePos.Y);
+        
+		float MX, MY;
+		if (UWidgetLayoutLibrary::GetMousePositionScaledByDPI(PC, MX, MY))
+		{
+			const FVector2D MousePosDPI(MX, MY);
+			
+			if (UTooltipSubsystem* Sys = UTooltipSubsystem::Get(GetWorld()))
+			{
+				FToolTipData Data {
+					Item->GetDisplayNameText(),
+					FText::FromString(Item->GetCategoryString()),
+					FText::FromString(Item->Description())
+				};
+				Sys->ShowTooltip(Data, MousePos);
+			}
+		}
 	}
+}
+
+FReply UItemWidget::NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	if (APlayerController* PC = GetOwningPlayer())
+	{
+		FVector2D MousePos;
+		PC->GetMousePosition(MousePos.X, MousePos.Y);
+		if (UTooltipSubsystem* Sys = UTooltipSubsystem::Get(GetWorld()))
+		{
+			Sys->UpdateTooltipPosition(MousePos);
+		}
+	}
+
+	return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
 }
 
 void UItemWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
@@ -166,6 +227,10 @@ void UItemWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
 	if (BackgroundBorder)
 	{
 		BackgroundBorder->SetBrushColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.5f));
+		if (UTooltipSubsystem* Sys = UTooltipSubsystem::Get(GetWorld()))
+		{
+			Sys->HideTooltip();
+		}
 	}
 	else
 	{
@@ -176,6 +241,7 @@ void UItemWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
 void UItemWidget::NativeOnDragDetected(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent,
                                        UDragDropOperation*& OutOp)
 {
+	
 	if (!Item)
 	{
 		UE_LOG(LogInventory, Warning, TEXT("OnDragDetected: Item is nullptr"));
@@ -187,8 +253,16 @@ void UItemWidget::NativeOnDragDetected(const FGeometry& InGeometry, const FPoint
 		       *Item->GetName());
 		return;
 	}
-
-	OwnerInventoryComponent->ClearDescription();
+	if (bIsFilteredOut)
+	{
+		OutOp = nullptr;
+		return;
+	}
+	
+	if (UTooltipSubsystem* Sys = UTooltipSubsystem::Get(GetWorld()))
+	{
+		Sys->HideTooltip();
+	}
 	UE_LOG(LogInventory, Verbose, TEXT("OnDragDetected: Cleared description"));
 
 	UItemDragOperation* Op = NewObject<UItemDragOperation>();
@@ -221,7 +295,7 @@ void UItemWidget::NativeOnDragDetected(const FGeometry& InGeometry, const FPoint
 	}
 
 	Ghost->SetOwningPlayer(GetOwningPlayer());
-	Ghost->SetItemWidget(Item, OwnerInventoryComponent);
+	Ghost->SetItemWidget(Item, OwnerInventoryComponent, TileSize);
 	Ghost->SetVisibility(ESlateVisibility::HitTestInvisible);
 
 	Op->GhostItemWidget = Ghost;

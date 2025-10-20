@@ -89,12 +89,12 @@ AFish::AFish()
 	FishMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FishMesh->SetMobility(EComponentMobility::Movable);
 
-	// 머리 마커 (Pivot 위치 = 머리)
+	
 	HeadMarker = CreateDefaultSubobject<USceneComponent>(TEXT("HeadMarker"));
 	HeadMarker->SetupAttachment(Pivot);
 	HeadMarker->SetRelativeLocation(FVector::ZeroVector);
 
-	// 꼬리 마커 (나중에 메시 크기에 따라 위치 조정)
+	
 	TailMarker = CreateDefaultSubobject<USceneComponent>(TEXT("TailMarker"));
 	TailMarker->SetupAttachment(Pivot);
 
@@ -978,12 +978,12 @@ void AFish::DrawMovementDebug()
 		                StateText, nullptr, StateColor, .01f, true, 1.2f);
 	}
 
-	// Actor Forward 방향 화살표
+	
 	DrawDebugDirectionalArrow(GetWorld(), FishLoc,
 	                          FishLoc + GetActorForwardVector() * 30.f,
 	                          15.f, FColor::Blue, false, .01f, 0, 1.5f);
 
-	// 머리와 꼬리 마커 디버그 표시
+	
 	if (HeadMarker)
 	{
 		FVector HeadPos = HeadMarker->GetComponentLocation();
@@ -999,7 +999,7 @@ void AFish::DrawMovementDebug()
 		DrawDebugString(GetWorld(), TailPos + FVector(0, 0, 20.f),
 		                TEXT("TAIL"), nullptr, FColor::Purple, .01f, true, 1.2f);
 		
-		// 머리-꼬리 연결선
+		
 		if (HeadMarker)
 		{
 			DrawDebugLine(GetWorld(), HeadMarker->GetComponentLocation(), TailPos,
@@ -1030,7 +1030,7 @@ FVector AFish::GetTailWorldLocation() const
 		return TailMarker->GetComponentLocation();
 	}
 	
-	// Fallback: 계산으로 구하기
+	
 	if (!FishMesh)
 	{
 		return GetActorLocation();
@@ -1081,13 +1081,13 @@ void AFish::UpdateTailMarkerPosition()
 		return;
 	}
 
-	// 메시의 바운딩 박스에서 길이 계산
+	
 	const FBox LocalBox = SM->GetBoundingBox();
 	const FVector MeshScale = FishMesh->GetRelativeScale3D();
 	const float FishLength = LocalBox.GetSize().X * MeshScale.X;
 
-	// TailMarker는 Pivot(머리)에서 뒤로 FishLength만큼
-	// Actor의 Forward 방향이 이동 방향이므로, 꼬리는 -Forward
+	
+	
 	TailMarker->SetRelativeLocation(FVector(-FishLength, 0.f, 0.f));
 
 	UE_LOG(LogFish, Verbose, TEXT("TailMarker updated: FishLength=%.1f, TailPos=%s"),

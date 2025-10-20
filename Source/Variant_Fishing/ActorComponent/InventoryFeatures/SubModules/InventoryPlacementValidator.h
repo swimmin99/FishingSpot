@@ -1,6 +1,6 @@
-﻿// ============================================
-// InventoryPlacementValidator.h
-// ============================================
+﻿
+
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -11,9 +11,7 @@ class UInventoryGridManager;
 class UInventoryStorage;
 class UItemBase;
 
-/**
- * Validates item placement and checks for collisions
- */
+
 UCLASS()
 class FISHING_API UInventoryPlacementValidator : public UObject
 {

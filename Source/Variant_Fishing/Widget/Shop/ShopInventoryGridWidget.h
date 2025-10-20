@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Variant_Fishing/Widget/Inventory/InventoryGridWidget.h"
+#include "Fishing.h"
 #include "ShopInventoryGridWidget.generated.h"
 
 class UShopTransactionManager;
@@ -16,13 +17,13 @@ public:
 
 protected:
 	virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent,
-	                          UDragDropOperation* InOperation) override;
+							  UDragDropOperation* InOperation) override;
 
 private:
 	UPROPERTY()
 	UShopTransactionManager* TransactionManager = nullptr;
+	
 
 	bool IsPlayerInventory() const;
-
 	bool IsShopInventory() const;
 };

@@ -1,6 +1,6 @@
-﻿// ============================================
-// InventoryUIManager.cpp
-// ============================================
+﻿
+
+
 #include "InventoryUIManager.h"
 
 #include "Fishing.h"
@@ -20,7 +20,7 @@ void UInventoryUIManager::RegisterWidget(UInventoryWidget* Widget)
     
     UE_LOG(LogInventoryUI, Log, TEXT("RegisterWidget: Widget registered"));
     
-    // Refresh immediately
+    
     RefreshGrid();
 }
 
@@ -47,36 +47,6 @@ void UInventoryUIManager::RefreshGrid()
     UE_LOG(LogInventoryUI, Verbose, TEXT("RefreshGrid: Grid refreshed"));
 }
 
-void UInventoryUIManager::UpdateDescription(UItemBase* Item)
-{
-    if (!InventoryWidget)
-    {
-        UE_LOG(LogInventoryUI, Verbose, TEXT("UpdateDescription: No widget registered"));
-        return;
-    }
-    
-    if (!Item)
-    {
-        UE_LOG(LogInventoryUI, Warning, TEXT("UpdateDescription: Item is null"));
-        return;
-    }
-    
-    InventoryWidget->UpdateDescription(Item);
-    
-    UE_LOG(LogInventoryUI, Verbose, TEXT("UpdateDescription: Updated for %s"), *Item->GetName());
-}
-
-void UInventoryUIManager::ClearDescription()
-{
-    if (!InventoryWidget)
-    {
-        return;
-    }
-    
-    InventoryWidget->ClearDescription();
-    
-    UE_LOG(LogInventoryUI, Verbose, TEXT("ClearDescription: Cleared"));
-}
 
 void UInventoryUIManager::SetFocusGridWidget()
 {
