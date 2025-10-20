@@ -30,17 +30,16 @@ Server-Authoritative 방식으로 낚시 로직을 구현했습니다.
 - `FishingBiteModule`: 입질 판정, Bite Window
 - `FishingCastModule`: 캐스팅 물리, 수면 감지
 
+
+<img width="1089" height="545" alt="스크린샷 2025-10-20 193847" src="https://github.com/user-attachments/assets/c7c9e776-4645-41e2-a5d2-adf98c9d791d" />
+
 ### Fish Spawn Pool
 Niagara 기반 물결 효과와 함께 물고기를 동적으로 생성합니다.
 - Object Pooling으로 성능 최적화
 - 생성/파괴 대신 활성화/비활성화로 처리
 - 각 Fish는 독립적인 AI 상태를 가지고 Idle/Approach/Bite 상태 전환
 
-### 잡은 물고기 연출
-플레이어가 물고기를 낚으면 실시간으로 들어올리는 Show-off Sequence가 실행됩니다.
-- Skeletal Mesh를 Static Mesh로 변환해서 최적화
-- 카메라 앞에서 물고기를 보여주는 연출
-- 이후 인벤토리에 자동 저장
+<img width="1114" height="544" alt="스크린샷 2025-10-20 193933" src="https://github.com/user-attachments/assets/75cc3513-f205-4853-ae61-074202d1af72" />
 
 ## 인벤토리 시스템
 Rotation과 공간 배치를 지원하는 Grid 시스템으로 발전시켰습니다.
@@ -49,21 +48,25 @@ Rotation과 공간 배치를 지원하는 Grid 시스템으로 발전시켰습�
 - `InventoryComponent`: 서버 권한, 아이템 검증
 - `InventoryGridWidget`: 클라이언트 UI, Drag & Drop
 - `ItemBase`: 아이템 데이터와 회전 상태
-- `ItemDataAsset`: 데이터 주도 설계
-
-## 상점 시스템
-
-ShopCharacter와 상호작용하면 상점 UI가 열립니다.
 - MenuManagerComponent가 여러 위젯을 통합 관리
 - 구매/판매 트랜잭션은 서버에서 검증
 - 플레이어 인벤토리와 자동 연동
 
-## Water System
+## 로컬 DB 기반 저장 시스템
+<img width="1280" height="686" alt="스크린샷 2025-10-20 194009" src="https://github.com/user-attachments/assets/f49cc097-684f-4ec0-8573-fa15686269f7" />
 
-Unreal Water Plugin 기반입니다.
-- 수면 충돌 감지는 `QueryWaterInfo()`로 처리
-- Bobber가 수면에 닿으면 Niagara Particle로 Splash 효과
-- `EnterFishing_Server()`에서 낚시 가능 여부 판정
+- `SQLite 기반 DB`: 진행 사항 데이터를 SQLite에 저장했습니다.
+- Unreal의 Build.cs 모듈에 SQLite 종속성을 추가하고 관련 API를 활용하여 정보를 보관하고 쿼리하는 방식으로 구현하였습니다.
+
+Players (PlayerID PK)
+  ├──< InventoryItems (PlayerID FK)
+  └──< FishRecords   (PlayerID FK)
+
+게스트: Players.HostPlayerID = 호스트의 PlayerID, IsHost=0
+호스트: Players.IsHost=1, HostPlayerID=NULL
+
+<img width="1270" height="700" alt="스크린샷 2025-10-20 193957" src="https://github.com/user-attachments/assets/05924734-db83-4c20-8df5-8dc93cd32d0d" />
+
 
 ## 프로젝트 구조
 
@@ -74,6 +77,7 @@ FishingSpot/
 │  ├─ ActorComponent/  # Fishing, Inventory, MenuManager
 │  │  └─ SubModules/   # Fishing 서브모듈들
 │  ├─ Data/            # DataAsset, Structs
+│  ├─ Database/        # DBManager
 │  ├─ Widget/          # Inventory, Shop UI
 │  └─ System/          # Network, GameMode
 ├─ Content/
@@ -86,14 +90,11 @@ FishingSpot/
 ## 기술 스택
 - Unreal Engine 5.6
 - C++ (Server Logic)
-- Blueprint (UI, Visual Effects)
 - Replication & RPC
-- Niagara VFX
-- Water Plugin
+- SQLite
 
 ## 개발 과정에서 배운 점
 
-1. **모듈화의 중요성**: 하나의 거대한 Component보다 작은 SubModule로 나누면 유지보수가 훨씬 쉬워집니다.
-2. **Server Authority**: 멀티플레이에서 치팅 방지를 위해 중요한 로직은 반드시 서버에서 처리해야 합니다.
-3. **Single Source of Truth**: 같은 데이터를 여러 곳에서 관리하면 반드시 동기화 문제가 생깁니다.
-4. **프리뷰와 실제**: UI 프리뷰와 실제 게임 로직이 다를 경우 최종적으로 서버 검증이 필요합니다.
+1. **모듈화의 중요성**: 하나의 거대한 Component보다 작은 SubModule로 나누면 유지보수가 훨씬 쉽다
+2. **Server Authority**: 멀티플레이에서 치팅 방지를 위해 중요한 로직은 반드시 서버에서 처리해야 한다
+3. **DB로 세이브 구현 가능**: 로컬 게임이더라도 DB를 사용하면 비교적 Data 트랜잭션 모니터링, 쿼리 등의 장점을 가진다.
